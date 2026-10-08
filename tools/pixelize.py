@@ -9,7 +9,7 @@ GPT images are ~1024px with soft, uneven "pixels". This tool:
   5. pastes it bottom-centre (feet on the baseline) into a --size x --size canvas.
 
 Single file:  python3 tools/pixelize.py raw.png out.png --size 64 --height 56
-Whole folder: python3 tools/pixelize.py --batch art_src/ game/public/sprites/ --size 64 --height 56
+Whole folder: python3 tools/pixelize.py --batch art_src/<unit> game/src/assets/sprites/<unit> --height 56
 Add --preview to also write <out>.preview.png enlarged 8x for checking.
 """
 import argparse, os, sys

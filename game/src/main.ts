@@ -1,13 +1,14 @@
 import Phaser from "phaser";
-import { WorldScene } from "./scenes/WorldScene";
+import { BattleScene } from "./battle/BattleScene";
 
+// 20×12 board of 32px tiles plus a 40px strip on top for tall sprites.
 new Phaser.Game({
   type: Phaser.AUTO,
-  parent: "game",
-  width: 320,
-  height: 180,
+  parent: "board",
+  width: 640,
+  height: 424,
   pixelArt: true,
-  backgroundColor: "#0e0b14",
-  scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-  scene: [WorldScene],
+  backgroundColor: "#0b0a0e",
+  scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH, expandParent: false },
+  scene: [BattleScene],
 });
