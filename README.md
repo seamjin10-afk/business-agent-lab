@@ -24,4 +24,6 @@ npm run demo-party   # 시연용 파티(인간 검사·드워프 전사·엘프 
 | `game/src/story/` | Ink 분기 대화 프로토타입 (스토리 단계에서 다시 연결) |
 | `docs/SPRITE_SPEC.md` | GPT 도트 제작 규격·프롬프트 |
 | `docs/art/` | 공방에서 추출한 레퍼런스 일러스트 (`tools/extract_art.py`) |
+| `docs/art/pdf/` | PDF 다섯 권에서 고른 인물 일러스트 (`tools/extract_pdf_art.py`) |
+| `docs/REFERENCES.md` | 레퍼런스 목록: 그림별 인물·근거, 그림 없는 인물의 웹 링크 |
 | `tools/pixelize.py` | GPT 이미지 → 정확한 크기의 도트 변환 |
