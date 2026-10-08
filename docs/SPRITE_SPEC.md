@@ -105,3 +105,19 @@ Same character as the attached image, identical outfit, colours and proportions.
 | `goblin` | 고블린 | `combatants/goblin.webp` | 필수 5종 |
 
 GPT 도트가 오기 전까지는 위 참고 일러스트를 자동으로 줄인 임시 도트로 전투를 보여 줍니다.
+
+## 7. 세력별 배색 (사용자 지정)
+
+흑백 레퍼런스는 아래 기준으로 색을 정합니다. 기준 이미지는 `docs/art/web/user/`에 있습니다.
+
+| 대상 | 기준 이미지 | 배색 |
+|---|---|---|
+| 고트렉 | `gotrek-miniature.jpg` (공식 미니어처) | 주황색 모히칸 머리와 땋은 수염, 맨살 상체(문신), 청회색 바지, 검은 부츠, 금빛 허리 갑주, 사슬 달린 팔찌, 금빛 룬 도끼 |
+| 하이엘프 전부 | `high-elf-palette.jpg` | 흰색 로브·망토를 바탕으로 하늘색·푸른색 천, 은색 금속, 금색 장식(팔찌·띠), 붉은 보석 포인트 |
+| 제국(인간) 전부 | `empire-palette.webp` | 붉은색·흰색 줄무늬 천과 소매, 은색 판금 흉갑·투구, 흰 깃털 장식, 갈색 가죽 |
+
+GPT 프롬프트에 넣을 문구:
+
+- 하이엘프: `white robes with sky-blue and deep blue cloth, silver armour, gold trim, small red gems`
+- 제국: `Empire soldier colours: red and white striped puffed sleeves, polished steel breastplate and helmet, white plume, brown leather`
+- 고트렉: `bright orange crested mohawk and long braided orange beard, bare tattooed torso, blue-grey trousers, black boots, gold armoured belt, chained wrist cuffs, golden rune axe`
