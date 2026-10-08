@@ -8,7 +8,8 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "typecheck": "tsc",
-    "sim": "node scripts/sim.mjs"
+    "sim": "node scripts/sim.mjs",
+    "demo-party": "node scripts/make-demo-party.mjs"
   },
   "keywords": [],
   "author": "",

@@ -1,0 +1,551 @@
+[
+ {
+  "sprite": "human-swordsman",
+  "state": {
+   "version": 1,
+   "saveId": "0ef666c1-557b-4432-97c6-1487ca442a57",
+   "portrait": "",
+   "mount": null,
+   "halflingHome": "Mootland",
+   "halflingClan": null,
+   "badgerRiderApproved": false,
+   "badgerWarcry": false,
+   "dwarfOriginRules": true,
+   "woodKindred": "forestborn",
+   "woodKindredApproved": false,
+   "longbeard": false,
+   "longbeardApproved": false,
+   "longbeardPenalty": "fate",
+   "longbeardResources": {
+    "resilience": null,
+    "resolve": null
+   },
+   "dwarfGear": {
+    "enabled": false,
+    "hand": "Dwarf Axe",
+    "duel": "Shield",
+    "bow": "Dwarf Crossbow"
+   },
+   "dwarfCriminalApplies": true,
+   "archiveCollegeTrained": false,
+   "magicAcquisitions": [],
+   "magicCraftProjects": [],
+   "runeRecipes": [],
+   "forge": {
+    "mode": "npc",
+    "anvil": false,
+    "verified": false
+   },
+   "pointOverrides": {},
+   "knownTechniques": [],
+   "origin": null,
+   "customItems": [],
+   "equipped": [
+    "start-1",
+    "start-3",
+    "start-4"
+   ],
+   "itemSpecs": {},
+   "runeItems": {},
+   "runeProjects": [],
+   "knownSpells": [],
+   "spellGrants": {},
+   "corruption": 0,
+   "magicLog": [],
+   "yenlui": "Balanced",
+   "burnout": null,
+   "difficulty": 1,
+   "species": "Human",
+   "career": "96",
+   "originCareer": "96",
+   "level": 1,
+   "section": "sheet",
+   "profile": {
+    "name": "인간 검사",
+    "age": "27",
+    "height": "152.4 cm",
+    "eyes": "",
+    "hair": "",
+    "ambition": "",
+    "party": "",
+    "background": "",
+    "faith": ""
+   },
+   "speciesRolls": [],
+   "careerOffer": null,
+   "careerReward": 0,
+   "bonusGear": [],
+   "gearChoices": {},
+   "statsMode": "first",
+   "statsRollCount": 1,
+   "rolls": [
+    13,
+    9,
+    18,
+    17,
+    8,
+    7,
+    10,
+    18,
+    9,
+    19
+   ],
+   "order": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "points": [
+    10,
+    10,
+    10,
+    10,
+    10,
+    10,
+    10,
+    10,
+    10,
+    10
+   ],
+   "bonus": [
+    3,
+    2,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "speciesSkills": [
+    "Evaluate",
+    "Haggle",
+    "Language (Bretonnian)",
+    "Lore (Reikland)",
+    "Cool"
+   ],
+   "careerSkills": {
+    "Athletics": 1,
+    "Melee (Any One)": 1,
+    "Language (Battle)": 2,
+    "Climb": 1,
+    "Gamble": 2,
+    "Melee (Basic)": 1
+   },
+   "specials": {
+    "Melee (Any One)": "Melee (Flail)",
+    "Ranged (Any One)": "Ranged (Crossbow)"
+   },
+   "speciesChoices": {},
+   "randomTalents": [
+    {
+     "roll": 20,
+     "name": "Coolheaded"
+    },
+    {
+     "roll": 2,
+     "name": "Acute Sense (Sight)"
+    },
+    {
+     "roll": 88,
+     "name": "Tinker"
+    },
+    {
+     "roll": 54,
+     "name": "Perfect Pitch"
+    }
+   ],
+   "startingTalent": "Strong Back",
+   "wealth": 80,
+   "goldPennies": 80,
+   "goldInitialized": true,
+   "purchases": [],
+   "moneyHistory": [],
+   "sheetNotes": {},
+   "finalized": true,
+   "xp": 0,
+   "xpEarned": 0,
+   "statAdv": {},
+   "skillAdv": {},
+   "boughtTalents": {},
+   "extraGear": [],
+   "tracker": 0,
+   "history": []
+  }
+ },
+ {
+  "sprite": "dwarf-warrior",
+  "state": {
+   "version": 1,
+   "saveId": "d0227990-5b5c-49ec-9665-2650a248e074",
+   "portrait": "",
+   "mount": null,
+   "halflingHome": "Mootland",
+   "halflingClan": null,
+   "badgerRiderApproved": false,
+   "badgerWarcry": false,
+   "dwarfOriginRules": true,
+   "woodKindred": "forestborn",
+   "woodKindredApproved": false,
+   "longbeard": false,
+   "longbeardApproved": false,
+   "longbeardPenalty": "fate",
+   "longbeardResources": {
+    "resilience": null,
+    "resolve": null
+   },
+   "dwarfGear": {
+    "enabled": false,
+    "hand": "Dwarf Axe",
+    "duel": "Shield",
+    "bow": "Dwarf Crossbow"
+   },
+   "dwarfCriminalApplies": true,
+   "archiveCollegeTrained": false,
+   "magicAcquisitions": [],
+   "magicCraftProjects": [],
+   "runeRecipes": [],
+   "forge": {
+    "mode": "npc",
+    "anvil": false,
+    "verified": false
+   },
+   "pointOverrides": {},
+   "knownTechniques": [],
+   "origin": "Karak Eight Peaks",
+   "customItems": [],
+   "equipped": [
+    "start-1",
+    "start-3",
+    "start-4"
+   ],
+   "itemSpecs": {},
+   "runeItems": {},
+   "runeProjects": [],
+   "knownSpells": [],
+   "spellGrants": {},
+   "corruption": 0,
+   "magicLog": [],
+   "yenlui": "Balanced",
+   "burnout": null,
+   "difficulty": 1,
+   "species": "Dwarf",
+   "career": "dwarf-dwarf-soldier-axefighter",
+   "originCareer": "dwarf-dwarf-soldier-axefighter",
+   "level": 1,
+   "section": "sheet",
+   "profile": {
+    "name": "드워프 전사",
+    "age": "79",
+    "height": "142.2 cm",
+    "eyes": "",
+    "hair": "",
+    "ambition": "",
+    "party": "",
+    "background": "",
+    "faith": ""
+   },
+   "speciesRolls": [],
+   "careerOffer": null,
+   "careerReward": 0,
+   "bonusGear": [],
+   "gearChoices": {},
+   "statsMode": "first",
+   "statsRollCount": 1,
+   "rolls": [
+    13,
+    9,
+    16,
+    4,
+    12,
+    14,
+    7,
+    11,
+    13,
+    12
+   ],
+   "order": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "points": [
+    10,
+    10,
+    10,
+    10,
+    10,
+    10,
+    10,
+    10,
+    10,
+    10
+   ],
+   "bonus": [
+    4,
+    1,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "speciesSkills": [
+    "Lore (Geology)",
+    "Consume Alcohol",
+    "Evaluate",
+    "Cool",
+    "Set Trap"
+   ],
+   "careerSkills": {
+    "Ranged (Any One)": 1,
+    "Climb": 1,
+    "Language (Battle)": 1,
+    "Gamble": 2,
+    "Cool": 2,
+    "Athletics": 1
+   },
+   "specials": {
+    "Melee (Any One)": "Melee (Two-handed)",
+    "Ranged (Any One)": "Ranged (Explosives)"
+   },
+   "speciesChoices": {
+    "2": "Resolute",
+    "3": "Strong-minded"
+   },
+   "randomTalents": [],
+   "startingTalent": "Etiquette (Soldiers)",
+   "wealth": 70,
+   "goldPennies": 70,
+   "goldInitialized": true,
+   "purchases": [],
+   "moneyHistory": [],
+   "sheetNotes": {},
+   "finalized": true,
+   "xp": 0,
+   "xpEarned": 0,
+   "statAdv": {},
+   "skillAdv": {},
+   "boughtTalents": {},
+   "extraGear": [],
+   "tracker": 0,
+   "history": []
+  }
+ },
+ {
+  "sprite": "elf-mage",
+  "state": {
+   "version": 1,
+   "saveId": "ba0a6bda-9c46-4e7e-9f31-31c640a197c9",
+   "portrait": "",
+   "mount": null,
+   "halflingHome": "Mootland",
+   "halflingClan": null,
+   "badgerRiderApproved": false,
+   "badgerWarcry": false,
+   "dwarfOriginRules": true,
+   "woodKindred": "forestborn",
+   "woodKindredApproved": false,
+   "longbeard": false,
+   "longbeardApproved": false,
+   "longbeardPenalty": "fate",
+   "longbeardResources": {
+    "resilience": null,
+    "resolve": null
+   },
+   "dwarfGear": {
+    "enabled": false,
+    "hand": "Dwarf Axe",
+    "duel": "Shield",
+    "bow": "Dwarf Crossbow"
+   },
+   "dwarfCriminalApplies": true,
+   "archiveCollegeTrained": false,
+   "magicAcquisitions": [],
+   "magicCraftProjects": [],
+   "runeRecipes": [],
+   "forge": {
+    "mode": "npc",
+    "anvil": false,
+    "verified": false
+   },
+   "pointOverrides": {},
+   "knownTechniques": [],
+   "origin": "Sea Elf",
+   "customItems": [],
+   "equipped": [
+    "start-1"
+   ],
+   "itemSpecs": {},
+   "runeItems": {},
+   "runeProjects": [],
+   "knownSpells": [
+    "f5-dart",
+    "f5-shock"
+   ],
+   "spellGrants": {
+    "Petty": 4
+   },
+   "corruption": 0,
+   "magicLog": [],
+   "yenlui": "Balanced",
+   "burnout": null,
+   "difficulty": 1,
+   "species": "High Elf",
+   "career": "elf-mage",
+   "originCareer": "elf-mage",
+   "level": 1,
+   "section": "sheet",
+   "profile": {
+    "name": "엘프 마법사",
+    "age": "91",
+    "height": "203.2 cm",
+    "eyes": "",
+    "hair": "",
+    "ambition": "",
+    "party": "",
+    "background": "",
+    "faith": ""
+   },
+   "speciesRolls": [],
+   "careerOffer": null,
+   "careerReward": 0,
+   "bonusGear": [],
+   "gearChoices": {
+    "Chalk or Chisel": "Chisel"
+   },
+   "statsMode": "first",
+   "statsRollCount": 1,
+   "rolls": [
+    11,
+    15,
+    16,
+    11,
+    11,
+    14,
+    6,
+    13,
+    10,
+    16
+   ],
+   "order": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "points": [
+    10,
+    10,
+    10,
+    10,
+    10,
+    10,
+    10,
+    10,
+    10,
+    10
+   ],
+   "bonus": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    2,
+    4,
+    0
+   ],
+   "speciesSkills": [
+    "Play (any one)",
+    "Cool",
+    "Entertain (Sing)",
+    "Leadership",
+    "Navigation"
+   ],
+   "careerSkills": {
+    "Gossip": 1,
+    "Channelling (Any Colour)": 1,
+    "Pray": 1,
+    "Lore (Theology)": 2,
+    "Language (Magick)": 1,
+    "Perception": 1,
+    "Charm": 1
+   },
+   "specials": {
+    "Play (any one)": "Play (Violin)",
+    "Art (Calligraphy or Engraving)": "Art (Calligraphy)",
+    "Channelling (Any Colour)": "Channelling (Azyr)"
+   },
+   "speciesChoices": {
+    "1": "Savvy",
+    "3": "Second Sight"
+   },
+   "randomTalents": [],
+   "startingTalent": "Petty Magic",
+   "wealth": 15,
+   "goldPennies": 180,
+   "goldInitialized": true,
+   "purchases": [],
+   "moneyHistory": [],
+   "sheetNotes": {},
+   "finalized": true,
+   "xp": 0,
+   "xpEarned": 0,
+   "statAdv": {},
+   "skillAdv": {},
+   "boughtTalents": {},
+   "extraGear": [],
+   "tracker": 0,
+   "history": [
+    {
+     "kind": "spell",
+     "key": "Dart",
+     "spellId": "f5-dart",
+     "lore": "Petty",
+     "cost": 0,
+     "corruptionDelta": 0,
+     "viaWitch": false,
+     "at": "2026-10-08T09:07:09.513Z"
+    },
+    {
+     "kind": "spell",
+     "key": "Shock",
+     "spellId": "f5-shock",
+     "lore": "Petty",
+     "cost": 0,
+     "corruptionDelta": 0,
+     "viaWitch": false,
+     "at": "2026-10-08T09:07:09.513Z"
+    }
+   ]
+  }
+ }
+]
