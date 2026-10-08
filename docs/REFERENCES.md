@@ -5,6 +5,7 @@ GPT로 도트를 만들 때 첨부할 참고 그림 목록입니다. 개인·지
 | 위치 | 내용 |
 |---|---|
 | `docs/art/` | 공방 HTML에 들어 있던 일러스트 251장 (`tools/extract_art.py`) |
+| `docs/art/web/totalwar/` | 토탈워 워해머 위키 이미지 20장 (색 참고용) |
 | `docs/art/pdf/<책>/` | PDF 다섯 권에서 고른 인물·괴물 일러스트 70장 (`tools/extract_pdf_art.py`로 뽑은 뒤 눈으로 고름, 긴 변 1200px) |
 
 파일 이름 `p030-0255.webp`는 "PDF 30쪽, 그 책의 255번째 이미지"라는 뜻입니다.
@@ -82,25 +83,60 @@ GPT로 도트를 만들 때 첨부할 참고 그림 목록입니다. 개인·지
 | `p022-0150` | WERNER NIKSE — NOBLE MAGNATE (GOLD 6) | 같은 쪽 NPC |
 | 나머지 10장 | 미확인 | — |
 
-## 6. 그림이 없는 인물 — 웹 검색 결과
+## 6. 토탈워 워해머 이미지 (`docs/art/web/totalwar/`)
 
-엔진에 프로필은 있는데 일러스트가 없는 인물과 벨레가르입니다.
+[Total War: WARHAMMER 위키](https://totalwarwarhammer.fandom.com/)에서 받은 이미지 20장입니다. 각 문서의 대표 이미지를 그대로 받았습니다.
 
-이 개발 환경에서는 네트워크 정책 때문에 아래 사이트의 이미지를 내려받을 수 없습니다. 그래서 링크만 모았습니다. PC에서 열어 그림을 GPT에 직접 첨부하시면 됩니다.
+- 위키 문서의 대표 이미지가 아이콘뿐인 고트렉, 룬스미스, 하이엘프 마법사·귀족·왕자, 제국군 장교·위치 헌터·전사 사제는 받지 않았습니다.
+- Lexicanum은 사이트 쪽 봇 차단 때문에 받을 수 없었습니다.
 
-검색에서 공식 일러스트가 직접 잡힌 경우는 벨레가르 아트 프린트뿐이었습니다. 나머지는 위키·미니어처 사진입니다.
-
-| 인물 | 링크 | 메모 |
+| 파일 | 위키 문서 | 종류 |
 |---|---|---|
-| 벨레가르 아이언해머 (카락 여덟 봉우리의 왕) | [Lexicanum](https://whfb.lexicanum.com/wiki/Belegar) · [공식 아트 프린트 (Mark Holmes)](https://www.warhammerart.com/products/belegar-ironhammer) · [Giant Bomb](https://giantbomb.com/wiki/Characters/Belegar_Ironhammer) · [도색 미니어처 (Tale of Painters)](https://taleofpainters.com/?p=19243) | PDF에는 이름만 나오고 그림은 없음: 돌과 강철의 군주들 9·23·68·69쪽, 드워프 PG 15·37·47쪽 |
-| 퀵 헤드테이커 (스케이븐 모르스 씨족 대군벌) | [Total War: Warhammer 2 소개 (PC Invasion)](https://www.pcinvasion.com/?p=155933) · [AoS 스케이븐 워스크롤 PDF](https://www.blacklibrary.com/Downloads/Product/PDF/aos/compendiums/ENG/warhammer-aos-skaven-en.pdf) · [도색 미니어처 (Dakka)](https://www.dakkadakka.com/gallery/78707-queek%20headtaker.html) | 워스크롤 기준 장비: 한 손에 Dwarf Gouger, 다른 손에 가시 검, War-shard 갑옷. 공식 일러스트 페이지는 찾지 못함 |
-| 스카스닉 (나이트 고블린, 여덟 봉우리의 군벌) | [Lexicanum](https://whfb.lexicanum.com/wiki/Skarsnik) · [Villains Wiki](https://villains.fandom.com/wiki/Skarsniik) · [미니어처 (CoolMiniOrNot)](https://www.coolminiornot.com/458179) | 거대 동굴 스퀴그 '고블라'와 함께 다님. 돌과 강철의 군주들 69쪽에 언급 |
-| 플레이그베어러 (너글 하급 데몬) | [Lexicanum (AoS)](https://ageofsigmar.lexicanum.com/wiki/Plaguebearer) · [미니어처 변천 (azazelx)](https://azazelx.com/2018/01/25/realm-of-chaos-nurgles-children-2018-2-3rd-wave-plaguebearers-2001/) | 녹색·갈색으로 곪은 시체 같은 피부 |
-| 블루 호러 (젠취 하급 데몬) | [Bell of Lost Souls](https://belloflostsouls.net/?p=167010) · [AoS 키트](https://www.hobbycraft.co.uk/warhammer-age-of-sigmar-disciples-of-tzeentch-blue-horrors/6806381000.html) | 가슴에 얼굴이 있는 팔다리 덩어리. 핑크 호러가 죽으면 둘로 갈라져 생김. 공방에 `pink-horror` 그림 있음 |
-| 클랜랫 (스케이븐 일반병) | [Warhammer Community 'Eavy Metal 도색 기사](https://www.warhammer-community.com/en-gb/articles/rW9n7R76/mustering-the-great-clans-find-out-how-eavy-metal-painted-the-hordes-of-skaven/) · [Lexicanum: Children of the Horned Rat](https://whfb.lexicanum.com/wiki/Children_of_the_Horned_Rat) | — |
+| `belegar-ironhammer.png` | [Belegar Ironhammer](https://totalwarwarhammer.fandom.com/wiki/Belegar_Ironhammer) | 인물 초상 |
+| `blue-horrors-of-tzeentch.png` | [Blue Horrors of Tzeentch](https://totalwarwarhammer.fandom.com/wiki/Blue_Horrors_of_Tzeentch) | 유닛 카드 (120×260) |
+| `clanrats.png` | [Clanrats](https://totalwarwarhammer.fandom.com/wiki/Clanrats) | 유닛 카드 (120×260) |
+| `dwarf-warriors.png` | [Dwarf Warriors](https://totalwarwarhammer.fandom.com/wiki/Dwarf_Warriors) | 유닛 카드 (120×260) |
+| `engineer.jpg` | [Engineer](https://totalwarwarhammer.fandom.com/wiki/Engineer) | 게임 화면 캡처 |
+| `hammerers.png` | [Hammerers](https://totalwarwarhammer.fandom.com/wiki/Hammerers) | 유닛 카드 (120×260) |
+| `ironbreakers.jpg` | [Ironbreakers](https://totalwarwarhammer.fandom.com/wiki/Ironbreakers) | 흑백 컨셉 시트 |
+| `loremaster-of-hoeth.jpg` | [Loremaster of Hoeth](https://totalwarwarhammer.fandom.com/wiki/Loremaster_of_Hoeth) | 컬러 컨셉 시트 |
+| `lothern-sea-guard.png` | [Lothern Sea Guard](https://totalwarwarhammer.fandom.com/wiki/Lothern_Sea_Guard) | 유닛 카드 (120×260) |
+| `miners.png` | [Miners](https://totalwarwarhammer.fandom.com/wiki/Miners) | 유닛 카드 (120×260) |
+| `night-goblins.png` | [Night Goblins](https://totalwarwarhammer.fandom.com/wiki/Night_Goblins) | 유닛 카드 (120×260) |
+| `plaguebearers-of-nurgle.png` | [Plaguebearers of Nurgle](https://totalwarwarhammer.fandom.com/wiki/Plaguebearers_of_Nurgle) | 유닛 카드 (120×260) |
+| `princess.jpg` | [Princess](https://totalwarwarhammer.fandom.com/wiki/Princess) | 컬러 컨셉 시트 |
+| `quarrellers.png` | [Quarrellers](https://totalwarwarhammer.fandom.com/wiki/Quarrellers) | 유닛 카드 (120×260) |
+| `queek-headtaker.png` | [Queek Headtaker](https://totalwarwarhammer.fandom.com/wiki/Queek_Headtaker) | 인물 초상 |
+| `shadow-warriors.png` | [Shadow Warriors](https://totalwarwarhammer.fandom.com/wiki/Shadow_Warriors) | 유닛 카드 (120×260) |
+| `skarsnik.png` | [Skarsnik](https://totalwarwarhammer.fandom.com/wiki/Skarsnik) | 인물 초상 |
+| `slayers.png` | [Slayers](https://totalwarwarhammer.fandom.com/wiki/Slayers) | 유닛 카드 (120×260) |
+| `swordmasters-of-hoeth.png` | [Swordmasters of Hoeth](https://totalwarwarhammer.fandom.com/wiki/Swordmasters_of_Hoeth) | 유닛 카드 (120×260) |
+| `thane.jpg` | [Thane](https://totalwarwarhammer.fandom.com/wiki/Thane) | 흑백 컨셉 시트 |
 
-이미지를 이 환경에서 직접 받아 오게 하려면, 클라우드 환경 설정의 네트워크 허용 도메인에 아래 도메인을 추가하면 됩니다.
+### 그림이 없던 인물
 
-- `whfb.lexicanum.com`, `ageofsigmar.lexicanum.com`
-- `*.fandom.com`, `static.wikia.nocookie.net`
-- `www.warhammerart.com`
+- `belegar-ironhammer`: 벨레가르. PDF에는 이름만 나오고 그림은 없습니다(돌과 강철의 군주들 9·23·68·69쪽, 드워프 PG 15·37·47쪽). 공식 아트 프린트도 있습니다: [warhammerart.com](https://www.warhammerart.com/products/belegar-ironhammer).
+- `queek-headtaker`: 퀵 헤드테이커.
+- `skarsnik`: 스카스닉. 돌과 강철의 군주들 69쪽에 언급됩니다.
+- `plaguebearers-of-nurgle`: 플레이그베어러.
+- `blue-horrors-of-tzeentch`: 블루 호러.
+- `clanrats`: 클랜랫.
+
+## 7. 흑백 그림의 색 참고
+
+흑백 일러스트는 같은 종류의 토탈워 유닛 도색을 참고해 색을 정합니다. 아래 대응은 **외형(장비·복장)이 비슷한 유닛을 고른 것**이고, 같은 인물이라는 뜻은 아닙니다.
+
+| 흑백 그림 (`docs/art/pdf/`) | 무엇 | 색 참고 (`docs/art/web/totalwar/`) |
+|---|---|---|
+| `lords/p028-0228` | 질라 크라그스도티르 (총을 든 드워프 여성) | `quarrellers` |
+| `lords/p030-0255` | 카즈가르 로그니손 (관문지기) | `hammerers`, `ironbreakers` |
+| `lords/p031-0269` | 헬가 비크람스도티르 (장인, 짐과 도구) | `miners` |
+| `lords/p041-0357` | 브라드니 브론즈비어드 (방어구 장인) | `dwarf-warriors` |
+| `lords/p043-0386` | 바라고르 구트리손 (대장간 장인) | `thane` |
+| `lords/p045-0409` | 난나 로간스도티르 (두건, 망치) | `miners` |
+| `lords/p051-0466` | 카트린 토름스도티르 (데몬 슬레이어) | `slayers` |
+| `cothique/p027-0303`, `p044-0575` | 엘프 영주·코티크 귀족 | `swordmasters-of-hoeth`, `princess` |
+| `cothique/p039-0499`, `p054-0756` | 창을 든 엘프 | `lothern-sea-guard` |
+| `cothique/p049-0665` | 활을 든 엘프 | `shadow-warriors`, `lothern-sea-guard` |
+| `cothique/p051-0705`, `p067-0893` | 로브 차림 엘프 | `loremaster-of-hoeth` |
+| `cothique/p057-0795`, `p069-0942`, `salzenmund/*` | 인간 | 대응 이미지 없음 (제국군 문서에 대표 이미지가 없음) |
