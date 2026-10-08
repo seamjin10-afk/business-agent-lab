@@ -7,7 +7,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "vite",
     "build": "tsc && vite build",
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "sim": "node scripts/sim.mjs"
   },
   "keywords": [],
   "author": "",
@@ -19,5 +20,6 @@
   "devDependencies": {
     "typescript": "^7.0.2",
     "vite": "^8.3.3"
-  }
+  },
+  "type": "module"
 }
