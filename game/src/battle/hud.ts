@@ -19,6 +19,7 @@ const ENEMY_SETS: Record<string, string[]> = {
   "오크 1 · 고블린 2": ["orc", "goblin", "goblin"],
   "고블린 4": ["goblin", "goblin", "goblin", "goblin"],
   "카오스 전사 · 컬티스트 무리": ["chaos-warrior", "cultist-swarm"],
+  "마그마 드래곤(2열) · 고블린 2": ["magma-dragon", "goblin", "goblin"],
 };
 const MODES: [ControlMode, string][] = [
   ["all", "아군 전원 직접 조작"],

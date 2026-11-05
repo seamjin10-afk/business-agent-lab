@@ -11,7 +11,7 @@ import { C, D } from "../rules/engine.js";
 export const RANKS = 4;
 export type Side = "allies" | "enemies";
 
-export type ActionKind = "attack" | "cast" | "defend" | "swap" | "shove" | "pull";
+export type ActionKind = "attack" | "cast" | "channel" | "defend" | "swap" | "shove" | "pull";
 
 export interface RankAction {
   kind: ActionKind;
@@ -24,8 +24,8 @@ export interface RankAction {
   to: number[];
 }
 
-/** The formation: actor ids per side, index 0 = rank 1. */
-export interface Formation { allies: string[]; enemies: string[] }
+/** The formation: actor ids per side, front first. Large and bigger monsters are 2 ranks wide. */
+export interface Formation { allies: string[]; enemies: string[]; width: Record<string, number> }
 
 const ALL = [1, 2, 3, 4];
 const MELEE_TARGETS = [1, 2];
@@ -46,12 +46,35 @@ export function weaponRanks(w: any): { from: number[]; to: number[]; label: stri
 }
 
 export function makeFormation(b: any): Formation {
-  const side = (team: Side) => b.actors.filter((a: any) => a.team === team).map((a: any) => a.id).slice(0, RANKS);
-  return { allies: side("allies"), enemies: side("enemies") };
+  const width: Record<string, number> = {};
+  for (const a of b.actors) width[a.id] = C.footprint(a) > 1 ? 2 : 1;
+  const side = (team: Side) => {
+    const ids: string[] = [];
+    let used = 0;
+    for (const a of b.actors.filter((x: any) => x.team === team)) {
+      if (used + width[a.id] > RANKS) continue;
+      ids.push(a.id);
+      used += width[a.id];
+    }
+    return ids;
+  };
+  return { allies: side("allies"), enemies: side("enemies"), width };
 }
 
 export function sideOf(f: Formation, id: string): Side { return f.allies.includes(id) ? "allies" : "enemies"; }
-export function rankOf(f: Formation, id: string): number { return f[sideOf(f, id)].indexOf(id) + 1; }
+/** First (front-most) rank the unit stands in. */
+export function rankOf(f: Formation, id: string): number {
+  const side = f[sideOf(f, id)];
+  let r = 1;
+  for (const x of side) { if (x === id) return r; r += f.width[x] ?? 1; }
+  return 0;
+}
+/** Every rank the unit covers (two for a large monster). */
+export function ranksOf(f: Formation, id: string): number[] {
+  const r = rankOf(f, id);
+  return Array.from({ length: f.width[id] ?? 1 }, (_, i) => r + i);
+}
+const overlaps = (a: number[], b: number[]) => a.some(x => b.includes(x));
 const actor = (b: any, id: string) => b.actors.find((a: any) => a.id === id);
 
 /** Conscious actors move forward over the fallen; fallen ones go to the back, in order. */
@@ -66,7 +89,7 @@ export function compact(b: any, f: Formation) {
 /** Living enemies of `a` standing in the given ranks. */
 function targetsIn(b: any, f: Formation, a: any, ranks: number[]) {
   const foes = f[a.team === "allies" ? "enemies" : "allies"];
-  return foes.filter((id, i) => ranks.includes(i + 1) && C.active(actor(b, id)));
+  return foes.filter(id => overlaps(ranksOf(f, id), ranks) && C.active(actor(b, id)));
 }
 
 export function actionsFor(b: any, f: Formation, a: any): RankAction[] {
@@ -85,10 +108,12 @@ export function actionsFor(b: any, f: Formation, a: any): RankAction[] {
   for (const sp of a.spells || []) {
     if (!/\d|yard|Willpower|Touch/i.test(sp.range || "") || /^You$/i.test(sp.range || "")) continue; // skip self/utility
     const touch = /touch/i.test(sp.range);
+    // Casting is not limited by rank: being hit in the front line only matters if it breaks
+    // concentration, which the engine resolves. Touch spells still need the foe in reach.
     out.push({ kind: "cast", label: `주문 · ${sp.name}`, spellId: sp.id, from: touch ? [1, 2] : ALL, to: touch ? MELEE_TARGETS : ALL });
+    if (canChannel(a) && Number(sp.cn) > 0) out.push({ kind: "channel", label: `집중 · ${sp.name}`, spellId: sp.id, from: ALL, to: [] });
   }
-  out.push({ kind: "shove", label: "밀치기", from: [1], to: [1] });
-  out.push({ kind: "pull", label: "끌어오기", from: [1, 2], to: [2, 3] });
+  // Shove / pull wait for the rulebook text (kept in perform() but not offered).
   out.push({ kind: "swap", label: "자리 바꾸기", from: ALL, to: [] });
   out.push({ kind: "defend", label: "방어 태세", from: ALL, to: [] });
   return out;
@@ -96,14 +121,15 @@ export function actionsFor(b: any, f: Formation, a: any): RankAction[] {
 
 /** Enemy ids this action can hit right now (rank of the user and of the targets checked). */
 export function legalTargets(b: any, f: Formation, a: any, act: RankAction): string[] {
-  if (!act.from.includes(rankOf(f, a.id)) || !act.to.length) return [];
+  if (!overlaps(ranksOf(f, a.id), act.from) || !act.to.length) return [];
   if (a.actionUsed) return [];
   return targetsIn(b, f, a, act.to);
 }
 
 export function usable(b: any, f: Formation, a: any, act: RankAction): boolean {
-  if (a.actionUsed || !act.from.includes(rankOf(f, a.id))) return false;
-  if (act.kind === "defend") return true;
+  if (a.actionUsed || !overlaps(ranksOf(f, a.id), act.from)) return false;
+  if ((act.kind === "cast" || act.kind === "channel") && !canCastNow(a, act.spellId)) return false;
+  if (act.kind === "defend" || act.kind === "channel") return true;
   if (act.kind === "swap") return f[a.team as Side].length > 1;
   return legalTargets(b, f, a, act).length > 0;
 }
@@ -139,6 +165,12 @@ export function perform(b: any, f: Formation, a: any, act: RankAction, targetId?
     if (j < 0 || Math.abs(i - j) !== 1) return "바로 옆 열의 아군과만 자리를 바꿀 수 있습니다.";
     [side[i], side[j]] = [side[j], side[i]];
     C.perform(b, a.id, "end", {});
+    return null;
+  }
+  if (act.kind === "channel") {
+    const sp = C.spellFor(a, act.spellId);
+    C.perform(b, a.id, "channel", { spellId: act.spellId, wind: windFor(a, sp) });
+    if (C.current(b)?.id === a.id) C.perform(b, a.id, "end", {});
     return null;
   }
   if (act.kind === "defend") {
@@ -186,7 +218,7 @@ export function aiChoose(b: any, f: Formation, a: any): { act: RankAction; targe
   const acts = actionsFor(b, f, a);
   const prefersRanged = a.tactic === "ranged";
   let best: { act: RankAction; target: string; score: number } | null = null;
-  for (const act of acts.filter(x => x.kind === "attack" || x.kind === "cast")) {
+  for (const act of acts.filter(x => (x.kind === "attack" || x.kind === "cast") && usable(b, f, a, x))) {
     for (const id of legalTargets(b, f, a, act)) {
       const t = actor(b, id);
       const w = act.weaponId ? a.weapons.find((x: any) => x.id === act.weaponId) : null;
@@ -201,8 +233,8 @@ export function aiChoose(b: any, f: Formation, a: any): { act: RankAction; targe
   // Nothing in reach: step toward a rank where one of our attacks works.
   const side = f[a.team as Side], i = side.indexOf(a.id);
   const attacks = acts.filter(x => x.kind === "attack" || x.kind === "cast");
-  const wantFront = attacks.some(x => x.from.includes(i)) && i > 0; // rank i (one step forward) works
-  const wantBack = attacks.some(x => x.from.includes(i + 2)) && i + 1 < side.length;
+  const wantFront = i > 0 && attacks.some(x => x.from.includes(rankOf(f, side[i - 1])));
+  const wantBack = i + 1 < side.length && attacks.some(x => x.from.includes(rankOf(f, side[i + 1]) + (f.width[side[i + 1]] ?? 1) - 1));
   const swap = acts.find(x => x.kind === "swap")!;
   if (wantFront && C.conscious(actor(b, side[i - 1]))) return { act: swap, target: side[i - 1] };
   if (wantBack) return { act: swap, target: side[i + 1] };
@@ -213,9 +245,27 @@ export const swarmSize = (a: any) => (C.trait(a, "Swarm") ? 3 : 1);
 export const actionName = (k: string) => D.ACTION_NAMES[k] || k;
 
 /** True when the engine already spent this actor's turn (unconscious, stunned, fast-shot, …). */
-export const cannotAct = (a: any) => !C.conscious(a) || a.actionUsed;
+export const cannotAct = (a: any) => !C.conscious(a) || a.actionUsed || !!stuckReason(a);
+
+/** Engine conditions that forbid acting this turn (WFRP: Broken flees, Surprised loses the turn). */
+export function stuckReason(a: any): string {
+  if (a.conditions?.Broken) return "공황 상태";
+  if (a.conditions?.Surprised) return "기습당한 상태";
+  if (a.effects?.some((e: any) => e.kind === "cannotAct")) return "행동 불가 효과";
+  return "";
+}
 
 /** Ends a turn that has nothing left to do. */
 export function skipTurn(b: any, a: any) {
   if (b.status === "running" && C.current(b)?.id === a.id) C.perform(b, a.id, "end", {});
 }
+
+/** Spell wind for channelling, chosen the way the workshop UI did. */
+function windFor(a: any, sp: any) {
+  return sp?.wind || (sp?.lore === "High Magic" ? "Qhaysh" : Object.keys(a.skills).find(k => k.startsWith("Channelling ("))?.match(/\((.*?)\)/)?.[1]);
+}
+const canChannel = (a: any) => Object.keys(a.skills || {}).some(k => k.startsWith("Channelling"));
+
+/** Mirrors the engine's casting blocks (burn-out, "cannot cast" effects, a disabled spell). */
+const canCastNow = (a: any, id?: string) =>
+  !a.burnout && !a.effects?.some((e: any) => e.kind === "cannotCast" || (e.kind === "disabledSpell" && (e.id === id || e.disabledSpell === id)));

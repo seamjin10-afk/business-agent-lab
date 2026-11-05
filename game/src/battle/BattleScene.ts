@@ -129,8 +129,9 @@ export class BattleScene extends Phaser.Scene {
       this.f[team].forEach((id, i) => {
         const u = this.units.get(id);
         if (!u) return;
-        u.rankTag.setText(`${i + 1}열`);
-        const x = this.rankX(team, i + 1);
+        const rs = K.ranksOf(this.f, id);
+        u.rankTag.setText(rs.length > 1 ? `${rs[0]}·${rs[1]}열` : `${rs[0]}열`);
+        const x = (this.rankX(team, rs[0]) + this.rankX(team, rs[rs.length - 1])) / 2;
         u.facing = team === "allies" ? 1 : -1;
         this.setPose(u, "idle");
         if (animate && Math.abs(u.box.x - x) > 1 && this.ms(1)) {
@@ -167,7 +168,12 @@ export class BattleScene extends Phaser.Scene {
     while (gen === this.generation && this.b.status === "running") {
       const cur = C.current(this.b);
       this.hud.order(this.b, this.view, cur?.id);
-      if (!cur || K.cannotAct(cur)) { await this.resolve(() => K.skipTurn(this.b, cur)); continue; }
+      if (!cur || K.cannotAct(cur)) {
+        const why = cur && C.conscious(cur) ? K.stuckReason(cur) : "";
+        if (why) this.hud.log(`${cur.name} · ${why}로 행동하지 못함`, cur.team);
+        await this.resolve(() => K.skipTurn(this.b, cur));
+        continue;
+      }
       if (playerControls(this.setup, this.b, cur)) {
         this.b.controlled = cur.id;
         this.choice = K.actionsFor(this.b, this.f, cur).find(x => K.usable(this.b, this.f, cur, x) && x.kind !== "defend" && x.kind !== "swap") ?? null;
@@ -241,7 +247,7 @@ export class BattleScene extends Phaser.Scene {
     const g = this.marks.clear();
     const box = (id: string, color: number) => {
       const u = this.units.get(id)!;
-      g.lineStyle(2, color, 0.95).strokeRect(u.box.x - 22, GROUND - 70, 44, 76);
+      g.lineStyle(2, color, 0.95).strokeRect(u.box.x - 22 * u.n, GROUND - 70 * u.n, 44 * u.n, 76 * u.n);
     };
     g.lineStyle(2, 0xd5b878, 0.9).strokeEllipse(this.units.get(a.id)!.box.x, GROUND - 2, 46, 14);
     if (!this.choice) return;
@@ -255,7 +261,7 @@ export class BattleScene extends Phaser.Scene {
     const a = C.current(this.b);
     if (this.busy || !a || !this.choice || this.b.status !== "running" || !playerControls(this.setup, this.b, a)) return;
     let hit: Unit | null = null;
-    for (const u of this.units.values()) if (Math.abs(p.worldX - u.box.x) < 26 && p.worldY > GROUND - 75 && p.worldY < GROUND + 12) hit = u;
+    for (const u of this.units.values()) if (Math.abs(p.worldX - u.box.x) < 26 * u.n && p.worldY > GROUND - 75 * u.n && p.worldY < GROUND + 12) hit = u;
     if (hit) this.act(a, this.choice, hit.id);
   }
 
