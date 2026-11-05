@@ -6,8 +6,8 @@ import { E } from "../src/rules/engine.js";
 import { rules as R, autoEquip } from "../src/rules/builder.js";
 
 const PARTY = [
-  { name: "인간 검사", species: "Human", careerId: "96", sprite: "human-swordsman" },
   { name: "드워프 전사", species: "Dwarf", careerId: "dwarf-dwarf-soldier-axefighter", sprite: "dwarf-warrior" },
+  { name: "인간 검사", species: "Human", careerId: "96", sprite: "human-swordsman" },
   { name: "엘프 마법사", species: "High Elf", careerId: "elf-mage", sprite: "elf-mage", spells: ["Dart", "Shock"] },
 ];
 

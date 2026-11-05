@@ -16,7 +16,7 @@ export interface BattleSetup {
 export const DEFAULT_SETUP: BattleSetup = {
   mode: "all",
   controlled: 0,
-  enemies: ["orc", "goblin", "goblin"],
+  enemies: ["orc", "goblin-swarm", "goblin"],
   background: "forest",
   seed: 7,
 };
@@ -45,7 +45,7 @@ export function createDemoBattle(setup: BattleSetup): Roster {
   });
   const sprites: Record<string, string> = {};
   (demoParty as any[]).forEach((p, i) => { sprites["ally-" + i] = p.sprite; });
-  setup.enemies.forEach((id, i) => { sprites["enemy-" + i] = id; });
+  setup.enemies.forEach((id, i) => { sprites["enemy-" + i] = id.replace(/-swarm$/, ""); });
   return { battle, sprites };
 }
 

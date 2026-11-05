@@ -1,13 +1,13 @@
 import { C, D } from "../rules/engine.js";
 import { BattleSetup, ControlMode, DEFAULT_SETUP } from "./setup";
+import type { RankAction } from "./ranks";
 
 export type Speed = "normal" | "fast" | "instant";
-export interface ActionChoice { action: string; label: string; weaponId?: string; spellId?: string }
 
 export interface HudHandlers {
   newBattle(setup: BattleSetup): void;
   speed(s: Speed): void;
-  choose(c: ActionChoice): void;
+  choose(c: RankAction): void;
   endTurn(): void;
 }
 
@@ -15,10 +15,10 @@ const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getEleme
 const esc = (s: unknown) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
 const ENEMY_SETS: Record<string, string[]> = {
+  "오크 · 고블린 무리 · 고블린": ["orc", "goblin-swarm", "goblin"],
   "오크 1 · 고블린 2": ["orc", "goblin", "goblin"],
   "고블린 4": ["goblin", "goblin", "goblin", "goblin"],
-  "오크 2": ["orc", "orc"],
-  "컬티스트 2 · 카오스 전사": ["cultist", "cultist", "chaos-warrior"],
+  "카오스 전사 · 컬티스트 무리": ["chaos-warrior", "cultist-swarm"],
 };
 const MODES: [ControlMode, string][] = [
   ["all", "아군 전원 직접 조작"],
@@ -96,16 +96,18 @@ export class Hud {
     $("hud-actions").innerHTML = `<p class="hint">${esc(text)}</p>`;
   }
 
-  /** Shows the controlled actor's options. `selected` is highlighted; board clicks use it. */
-  controls(actor: any, choices: ActionChoice[], selected: ActionChoice | null, moveLeft: number, error = "") {
+  /** Shows the controlled actor's options; greyed out when the current rank doesn't allow them. */
+  controls(actor: any, rank: number, acts: (RankAction & { ok: boolean })[], selected: RankAction | null, error = "") {
+    const ranks = (r: number[]) => r.length ? r.join("·") : "-";
     $("hud-actions").innerHTML = `
-      <div class="who"><strong>${esc(actor.name)}</strong>의 차례 · 남은 이동 ${moveLeft}칸${actor.actionUsed ? " · 행동 사용함" : ""}</div>
-      <div class="btns">${choices.map((c, i) => `<button data-i="${i}" class="${selected && sameChoice(c, selected) ? "sel" : ""}" ${actor.actionUsed && c.action !== "defend" ? "disabled" : ""}>${esc(c.label)}</button>`).join("")}
-        <button id="hud-end" class="quiet">턴 종료</button></div>
-      <p class="hint">파란 칸을 누르면 이동하고, 빨간 테두리의 적을 누르면 선택한 행동을 실행합니다. 남은 이동력으로 닿는 적이면 다가가서 실행합니다.</p>
+      <div class="who"><strong>${esc(actor.name)}</strong>의 차례 · 현재 <b>${rank}열</b></div>
+      <div class="btns">${acts.map((c, i) => `<button data-i="${i}" class="${selected && sameAction(c, selected) ? "sel" : ""}" ${c.ok ? "" : "disabled"}
+        title="사용 위치 ${ranks(c.from)}열 → 대상 ${ranks(c.to)}열">${esc(c.label)}<small> ${ranks(c.from)}→${ranks(c.to)}</small></button>`).join("")}
+        <button id="hud-end" class="quiet">턴 넘기기</button></div>
+      <p class="hint">행동을 고르고 빨간 테두리의 적(자리 바꾸기는 파란 테두리의 아군)을 누르세요. 숫자는 "사용 가능한 내 열 → 맞힐 수 있는 적 열"입니다.</p>
       ${error ? `<p class="err">${esc(error)}</p>` : ""}`;
     $("hud-actions").querySelectorAll<HTMLButtonElement>("button[data-i]").forEach(b => {
-      b.onclick = () => this.h.choose(choices[Number(b.dataset.i)]);
+      b.onclick = () => this.h.choose(acts[Number(b.dataset.i)]);
     });
     $("hud-end").onclick = () => this.h.endTurn();
   }
@@ -128,7 +130,7 @@ export class Hud {
   }
 }
 
-export const sameChoice = (a: ActionChoice, b: ActionChoice) =>
-  a.action === b.action && a.weaponId === b.weaponId && a.spellId === b.spellId;
+export const sameAction = (a: RankAction, b: RankAction) =>
+  a.kind === b.kind && a.weaponId === b.weaponId && a.spellId === b.spellId;
 
 export const actionName = (k: string) => D.ACTION_NAMES[k] || k;
