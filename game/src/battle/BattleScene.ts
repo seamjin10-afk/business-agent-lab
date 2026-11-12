@@ -10,7 +10,7 @@ import demoParty from "../data/demo-party.json";
 const W = 640, H = 424;
 const GROUND = 300;            // feet line
 const MID = W / 2;
-const FRONT = 46, STEP = 72;   // px from centre to rank 1, and between ranks
+const FRONT = 44, STEP = 76;   // px from centre to rank 1, and between ranks
 const ALLY = 0x5aa0ff, ENEMY = 0xff5a5a;
 
 interface Unit {
@@ -29,9 +29,10 @@ interface Unit {
 }
 
 // Rig canvas per unit, in world px (drawn at 2x for the zoomed camera).
-const RIG_W = 210, RIG_H = 180, RIG_FOOT = 8, RIG_HEIGHT = 118;
+const RIG_W = 210, RIG_H = 170, RIG_FOOT = 8, RIG_HEIGHT = 108;
 const POSE_TO_RIG: Record<Pose, RigPose> = { idle: "combat", move: "walk", melee: "attack", ranged: "attack", cast: "skill", hit: "hurt", death: "down" };
 const LOOPING: RigPose[] = ["combat", "walk", "afflicted", "victory", "camp"];
+const HIT_AT = 0.45; // share of an attack/skill animation before the blow lands
 
 /**
  * Rank battle (Darkest Dungeon style): both sides stand in 4 ranks facing each other.
@@ -168,8 +169,11 @@ export class BattleScene extends Phaser.Scene {
         u.facing = team === "allies" ? 1 : -1;
         this.setPose(u, "idle");
         if (animate && Math.abs(u.box.x - x) > 1 && this.ms(1)) {
+          // Walk facing the way they move, then turn back to the enemy.
+          const front = u.facing;
+          this.face(u, x);
           this.setPose(u, "move");
-          jobs.push(this.tween({ targets: u.box, x, duration: 260 }).then(() => this.setPose(u, "idle")));
+          jobs.push(this.tween({ targets: u.box, x, duration: 320 }).then(() => { u.facing = front; this.setPose(u, "idle"); }));
         } else u.box.x = x;
         u.box.setDepth(10 + (4 - i));
       });
@@ -179,7 +183,7 @@ export class BattleScene extends Phaser.Scene {
 
   private face(u: Unit, towardX: number) {
     if (Math.abs(towardX - u.box.x) > 2) u.facing = towardX < u.box.x ? -1 : 1;
-    u.body.setFlipX(u.facing < 0);
+    if (!u.rig) u.body.setFlipX(u.facing < 0); // rigs are mirrored when drawn
     u.crowd.forEach(c => c.setFlipX(u.facing < 0));
   }
 
@@ -330,11 +334,16 @@ export class BattleScene extends Phaser.Scene {
 
   // ---------------------------------------------------------------- animation
 
+  /** Length of a pose's animation in ms at the current speed (sprites: a short beat). */
+  private animMs(u: Unit, pose: Pose) {
+    return u.rig ? rigDuration(u.rig.id, POSE_TO_RIG[pose]) * 1000 : 300; // wait()/tween() apply speed
+  }
+
   private ms(n: number) { return this.speed === "instant" ? 0 : this.speed === "fast" ? n / 2 : n; }
 
   private frame() { return new Promise<void>(r => this.time.delayedCall(16, r)); }
 
-  private wait(n: number) { return n ? new Promise<void>(r => this.time.delayedCall(this.ms(n), r)) : Promise.resolve(); }
+  private wait(n: number) { return n > 0 ? new Promise<void>(r => this.time.delayedCall(this.ms(n), r)) : Promise.resolve(); }
 
   private tween(cfg: Phaser.Types.Tweens.TweenBuilderConfig & { duration: number }) {
     return new Promise<void>(r => {
@@ -364,27 +373,36 @@ export class BattleScene extends Phaser.Scene {
 
     const shooter = this.b.actors.find((x: any) => x.id === scene.actor);
     if (type === "attack" && !(scene.action === "attack" && C.weaponOf(shooter)?.ranged)) {
-      // Melee: dash most of the way to the target, strike, step back to the rank.
-      this.setPose(u, "move");
+      // Melee (Darkest Dungeon style): lunge in while the attack animation plays, land the
+      // hit at the swing, let the animation finish, then slide back in the ready pose.
       const x0 = u.box.x;
       const gap = target ? target.box.x - u.box.x : u.facing * 60;
-      const reach = Math.sign(gap) * Math.max(8, Math.abs(gap) - 44);
-      await this.tween({ targets: u.box, x: x0 + reach, duration: 160, ease: "Quad.easeOut" });
+      const reach = Math.sign(gap) * Math.max(8, Math.abs(gap) - 48);
+      const D = this.animMs(u, "melee");
+      u.box.setDepth(100); // the attacker steps in front of its own line
       this.setPose(u, "melee");
+      await this.tween({ targets: u.box, x: x0 + reach, duration: Math.min(220, D * 0.3), ease: "Quad.easeOut" });
+      await this.wait(D * HIT_AT - Math.min(220, D * 0.3));
       if (target) this.slash(this.center(target), scene.action === "riposte" ? 0xfff2a0 : 0xffffff);
-      await this.wait(120);
-      this.setPose(u, "move");
-      await this.tween({ targets: u.box, x: x0, duration: 180 });
+      await this.wait(D * (1 - HIT_AT));
+      this.setPose(u, "idle");
+      await this.tween({ targets: u.box, x: x0, duration: 200, ease: "Quad.easeInOut" });
     } else if (type === "ranged" || type === "attack") {
+      const D = this.animMs(u, "ranged");
       this.setPose(u, "ranged");
-      await this.wait(150);
+      await this.wait(D * HIT_AT);
       if (target) await this.projectile(this.center(u), this.center(target), 0xe8e0c8, 4);
+      await this.wait(D * (1 - HIT_AT) - 200);
     } else if (["cast", "channel", "technique", "breath"].includes(type)) {
       const theme = F.effectTheme(scene);
       const color = theme?.color ? Phaser.Display.Color.HexStringToColor(theme.color).color : 0xc9b8ff;
-      this.setPose(u, hasPose(u.sprite, "cast") || type !== "technique" ? "cast" : "melee");
+      const pose: Pose = u.rig || hasPose(u.sprite, "cast") || type !== "technique" ? "cast" : "melee";
+      const D = this.animMs(u, pose);
+      this.setPose(u, pose);
       await this.glow(this.center(u), color);
+      await this.wait(D * HIT_AT - 520);
       if (target) await this.projectile(this.center(u), this.center(target), color, 6, true);
+      await this.wait(D * (1 - HIT_AT) - 300);
     } else if (type === "defend") {
       this.shield(u);
       await this.wait(350);
@@ -416,6 +434,7 @@ export class BattleScene extends Phaser.Scene {
       await this.tween({ targets: u.box, x: x0 + amp, duration: 40, yoyo: true, repeat: heavy ? 3 : 1 });
       u.box.x = x0;
       u.body.clearTint();
+      if (u.rig) await this.wait(this.animMs(u, "hit") * 0.6 - 160); // let the flinch read
       if (!v.dead) this.setPose(u, "idle");
     });
     await Promise.all(jobs);
