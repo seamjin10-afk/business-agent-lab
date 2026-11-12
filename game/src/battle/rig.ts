@@ -71,7 +71,7 @@ function poseAt(rig: Rig, pose: RigPose, t: number) {
  * rig's whole view box (so a horse is taller than a dwarf at the same scale per rig).
  */
 export function drawRig(ctx: CanvasRenderingContext2D, id: string, pose: RigPose, t: number,
-  footX: number, footY: number, height: number, flip: boolean) {
+  footX: number, footY: number, height: number, flip: boolean, weapon: WeaponLook | null = null) {
   const rig = rigs.get(id);
   if (!rig) return;
   const map = poseAt(rig, pose, t), v = rig.viewBounds, scale = height / (v[3] - v[1]);
@@ -81,8 +81,10 @@ export function drawRig(ctx: CanvasRenderingContext2D, id: string, pose: RigPose
   ctx.scale(scale, -scale);
   ctx.translate(-(v[0] + v[2]) / 2, -v[1]);
   for (const s of rig.slots) {
-    const a = rig.skins.default[s.name]?.[s.attachment];
-    const r = a && rig.regions[a.path || s.attachment], im = r && rig.pages[r.page], b = map[s.bone];
+    let a = rig.skins.default[s.name]?.[s.attachment];
+    let r = a && rig.regions[a.path || s.attachment], im = r && rig.pages[r.page];
+    const b = map[s.bone];
+    if (s.name === "r_sword" && weapon) ({ a, r, im } = borrowWeapon(weapon) ?? { a, r, im });
     if (!r || !im?.complete || !im.naturalWidth) continue;
     ctx.save();
     ctx.transform(b.a, b.c, b.b, b.d, b.x, b.y);
@@ -93,6 +95,62 @@ export function drawRig(ctx: CanvasRenderingContext2D, id: string, pose: RigPose
     ctx.restore();
   }
   ctx.restore();
+}
+
+// ------------------------------------------------------------------ weapon parts
+// Every rig hangs its weapon on an "r_sword" bone under the right hand, drawn along the
+// bone. The seven weapon pictures in the rig set are borrowed across rigs so the drawing
+// matches what the character actually carries.
+
+export interface WeaponLook { rig: string; length: number }
+const WEAPONS: Record<string, WeaponLook> = {
+  sword: { rig: "human", length: 220 },
+  sabre: { rig: "human-cavalry-on-foot", length: 220 },
+  greatsword: { rig: "human", length: 300 },
+  staff: { rig: "high-elf", length: 200 },
+  spear: { rig: "wood-elf", length: 250 },
+  lance: { rig: "high-elf-cavalry-on-foot", length: 240 },
+  pick: { rig: "dwarf", length: 210 },
+  dagger: { rig: "halfling", length: 80 },
+};
+const NATIVE: Record<string, string> = {
+  "human": "sword", "human-cavalry-on-foot": "sabre", "high-elf": "staff", "high-elf-cavalry-on-foot": "lance",
+  "wood-elf": "spear", "wood-elf-cavalry-on-foot": "spear", "dwarf": "pick", "halfling": "dagger", "dragon-prince-on-foot": "lance",
+};
+
+function borrowWeapon(w: WeaponLook) {
+  const src = rigs.get(w.rig), sa: any = src && Object.values(src.skins.default.r_sword || {})[0];
+  const r = src?.regions.r_sword, im = r && src!.pages[r.page];
+  if (!sa || !r || !im) return null;
+  const k = w.length / sa.height; // keep the picture's proportions and grip point
+  return { a: { ...sa, x: (sa.x || 0) * k, y: sa.y * k, width: sa.width * k, height: w.length }, r, im };
+}
+
+/** Weapon kind of an engine weapon, from its group, reach and name. */
+function weaponKind(w: any): string | null {
+  const n = `${w.name} ${w.english ?? ""}`;
+  if (/지팡이|staff/i.test(n)) return "staff";
+  if (/단검|dagger|knife|칼날/i.test(n) || w.reach === "Very Short") return "dagger";
+  if (w.group === "Two-Handed" && /검|sword|hoeth/i.test(n)) return "greatsword";
+  if (w.group === "Polearm" || w.group === "Cavalry" || /창|spear|lance|halberd|미늘/i.test(n)) return "spear";
+  if (/도끼|axe|망치|hammer|mace|곡괭이|pick/i.test(n) || w.group === "Two-Handed") return "pick";
+  if (w.group === "Fencing" || /세이버|sabre|rapier|레이피어/i.test(n)) return "sabre";
+  return w.group === "Basic" ? "hand" : null;
+}
+
+/**
+ * Weapon picture for a rigged actor: the best melee weapon it carries. A generic hand
+ * weapon keeps the rig's own sword/pick; casters with only a knife keep their staff.
+ */
+export function weaponLook(actor: any, rigId: string): WeaponLook | null {
+  const native = NATIVE[rigId];
+  if (!native) return null; // mounted rigs keep their lance
+  const melee = (actor.weapons || []).filter((w: any) => !w.ranged && !w.freeOnly && w.group !== "Brawling")
+    .sort((x: any, y: any) => (y.damage ?? 0) - (x.damage ?? 0) || (weaponKind(x) === "dagger" ? 1 : -1));
+  let kind = melee.length ? weaponKind(melee[0]) : null;
+  if (!kind || (kind === "dagger" && (actor.spells?.length || native === "staff"))) return null;
+  if (kind === "hand") kind = ["sword", "sabre", "pick"].includes(native) ? native : "sword";
+  return kind === native ? null : WEAPONS[kind];
 }
 
 /** Which rig a party member uses (rigging/runtime.js resolve). Monsters have none yet. */
@@ -108,6 +166,9 @@ export function resolveRig(actor: any, mount: any = null): string | null {
     return "dragon-prince-on-foot";
   }
   if (cavalry) return actor.mountId && mount?.mountKind === "Horse" ? base + "-cavalry" : base + "-cavalry-on-foot";
+  // Warrior-class careers wear the armoured body where the set has one (otherwise every
+  // member of a species looked alike, e.g. a swordmaster drawn as a robed mage).
+  if (actor.careerClass === "Warrior" && ["human", "high-elf", "wood-elf"].includes(base)) return base + "-cavalry-on-foot";
   return base;
 }
 

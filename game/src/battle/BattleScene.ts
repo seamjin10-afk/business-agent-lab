@@ -4,7 +4,7 @@ import { BattleSetup, DEFAULT_SETUP, Roster, createDemoBattle, playerControls } 
 import { Pose, buildGenericTextures, hasPose, preloadSprites, spriteKey } from "./sprites";
 import { Hud, Speed } from "./hud";
 import * as K from "./ranks";
-import { RigPose, drawRig, hasRig, resolveRig, rigDuration, rigsReady } from "./rig";
+import { RigPose, WeaponLook, drawRig, hasRig, resolveRig, rigDuration, rigsReady, weaponLook } from "./rig";
 import demoParty from "../data/demo-party.json";
 
 const W = 640, H = 424;
@@ -25,7 +25,7 @@ interface Unit {
   rankTag: Phaser.GameObjects.Text;
   facing: 1 | -1;
   n: number;
-  rig?: { id: string; tex: Phaser.Textures.CanvasTexture; pose: RigPose; start: number };
+  rig?: { id: string; tex: Phaser.Textures.CanvasTexture; pose: RigPose; start: number; weapon: WeaponLook | null };
 }
 
 // Rig canvas per unit, in world px (drawn at 2x for the zoomed camera).
@@ -68,12 +68,12 @@ export class BattleScene extends Phaser.Scene {
     const now = this.time.now;
     for (const u of this.units.values()) {
       if (!u.rig) continue;
-      const { id, tex, pose, start } = u.rig, D = rigDuration(id, pose);
+      const { id, tex, pose, start, weapon } = u.rig, D = rigDuration(id, pose);
       const elapsed = (now - start) / 1000 * (this.speed === "fast" ? 2 : 1) / this.slow;
       const t = LOOPING.includes(pose) ? elapsed % D : Math.min(D, this.speed === "instant" ? D : elapsed);
       const ctx = tex.getContext();
       ctx.clearRect(0, 0, tex.width, tex.height);
-      drawRig(ctx, id, pose, t, tex.width / 2, tex.height - RIG_FOOT * 2, RIG_HEIGHT * 2 * u.n, u.facing < 0);
+      drawRig(ctx, id, pose, t, tex.width / 2, tex.height - RIG_FOOT * 2, RIG_HEIGHT * 2 * u.n, u.facing < 0, weapon);
       tex.refresh();
     }
   }
@@ -137,7 +137,7 @@ export class BattleScene extends Phaser.Scene {
     if (hasRig(rigId)) {
       const key = `rig-${a.id}-${this.generation}`;
       const tex = this.textures.createCanvas(key, RIG_W * 2 * n, RIG_H * 2 * n)!;
-      rig = { id: rigId!, tex, pose: "combat", start: this.time.now };
+      rig = { id: rigId!, tex, pose: "combat", start: this.time.now, weapon: weaponLook(a, rigId!) };
       body = this.add.image(0, 0, key).setOrigin(0.5, 1 - (RIG_FOOT * 2) / tex.height).setScale(0.5);
     } else {
       body = this.add.image(0, 0, spriteKey(sprite, "idle")).setOrigin(0.5, 1);

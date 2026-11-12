@@ -31,6 +31,7 @@ export function createDemoBattle(setup: BattleSetup): Roster {
   const allies = (demoParty as any[]).map(p => ({
     ...C.fromBuilder(rules, structuredClone(p.state), ownedItems(p.state)),
     careerId: p.state.career, // picks the rig (cavalry careers get mounted rigs)
+    careerClass: rules.careers.find((c: any) => c.id === p.state.career)?.class,
     tactic: p.sprite === "elf-mage" ? "ranged" : "melee",
   }));
   const enemies = setup.enemies.map(id => {
