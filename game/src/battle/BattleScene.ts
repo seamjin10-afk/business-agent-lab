@@ -54,6 +54,8 @@ export class BattleScene extends Phaser.Scene {
   private stats: Record<string, { dealt: number; taken: number; actions: number }> = {};
   private generation = 0;
   private fxObjects = new Set<Phaser.GameObjects.GameObject>();
+  private slow = 1;                                  // >1 during a close-up
+  private dim?: Phaser.GameObjects.Rectangle;        // close-up backdrop shade
 
   constructor() { super("battle"); }
 
@@ -67,7 +69,7 @@ export class BattleScene extends Phaser.Scene {
     for (const u of this.units.values()) {
       if (!u.rig) continue;
       const { id, tex, pose, start } = u.rig, D = rigDuration(id, pose);
-      const elapsed = (now - start) / 1000 * (this.speed === "fast" ? 2 : 1);
+      const elapsed = (now - start) / 1000 * (this.speed === "fast" ? 2 : 1) / this.slow;
       const t = LOOPING.includes(pose) ? elapsed % D : Math.min(D, this.speed === "instant" ? D : elapsed);
       const ctx = tex.getContext();
       ctx.clearRect(0, 0, tex.width, tex.height);
@@ -88,7 +90,7 @@ export class BattleScene extends Phaser.Scene {
       endTurn: () => this.endTurn(),
     }, (demoParty as any[]).map(p => p.state.profile.name));
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => this.onClick(p));
-    if (location.search.includes("debug")) (window as any).__battle = () => ({ b: this.b, f: this.f, busy: this.busy, pos: (id: string) => { const u = this.units.get(id)!; return { x: u.box.x, y: u.box.y - 24 }; } });
+    if (location.search.includes("debug")) (window as any).__battle = () => ({ b: this.b, f: this.f, busy: this.busy, zoom: this.cameras.main.zoom, pos: (id: string) => { const u = this.units.get(id)!; return { x: u.box.x, y: u.box.y - 24 }; } });
     rigsReady.then(() => this.start(this.hud.current));
   }
 
@@ -103,6 +105,9 @@ export class BattleScene extends Phaser.Scene {
     this.units.clear();
     this.tweens.killAll();
     this.fxObjects.forEach(o => o.destroy());
+    this.slow = 1;
+    this.dim?.setFillStyle(0x000000, 0);
+    this.cameras.main.setZoom(2).centerOn(W / 2, H / 2);
     this.busy = false;
     this.choice = null;
     this.stats = {};
@@ -212,6 +217,11 @@ export class BattleScene extends Phaser.Scene {
 
   private async pump(gen: number) {
     while (gen === this.generation && this.b.status === "running") {
+      if (this.b.pending) {
+        const note = K.settlePending(this.b);
+        this.hud.log(`GM 판정 필요: ${note} (게임에서는 효과 없이 기록만 하고 진행)`, "round");
+        if (this.b.status !== "running") break;
+      }
       const cur = C.current(this.b);
       this.hud.order(this.b, this.view, cur?.id);
       if (!cur || K.cannotAct(cur)) {
@@ -228,9 +238,14 @@ export class BattleScene extends Phaser.Scene {
       }
       this.hud.idle(`${cur.name} 행동 중…`);
       await this.wait(120);
-      const { act, target } = K.aiChoose(this.b, this.f, cur);
+      // If the engine refuses a special move (momentum, engagement…), fall back to a plain one.
       let err: string | null = null;
-      await this.resolve(() => { err = K.perform(this.b, this.f, cur, act, target); });
+      for (const noSkills of [false, true]) {
+        const live = this.b.actors.find((x: any) => x.id === cur.id);
+        const { act, target } = K.aiChoose(this.b, this.f, live, { noSkills });
+        await this.resolve(() => { err = K.perform(this.b, this.f, live, act, target); });
+        if (!err) break;
+      }
       if (err) await this.resolve(() => K.skipTurn(this.b, cur));
     }
     if (gen === this.generation) this.finish();
@@ -242,9 +257,15 @@ export class BattleScene extends Phaser.Scene {
     this.marks.clear();
     this.view = F.presentationSnapshot(this.b);
     const since = this.b.logCounter;
+    const standing = new Set(this.b.actors.filter((x: any) => C.conscious(x)).map((x: any) => x.id));
     try { run(); } finally {
       const scenes = F.presentationScenes(F.visualEvents(this.b, since));
+      // Decisive moment: someone who was standing goes down in this action → close-up.
+      const felled = this.b.actors.find((x: any) => standing.has(x.id) && !C.conscious(x));
+      const blow = felled && scenes.find((s: any) => s.phase === "effect" && s.actor !== felled.id);
+      if (blow && this.speed !== "instant") await this.closeUp(blow.actor, felled.id, true);
       for (const s of scenes) await this.play(s);
+      if (blow && this.speed !== "instant") await this.closeUp(blow.actor, felled.id, false);
       for (const a of this.b.actors) { const u = this.units.get(a.id); if (u) this.setHp(u, a.wounds, a.maxWounds, false); }
       K.compact(this.b, this.f);
       await this.layout(true);
@@ -334,12 +355,36 @@ export class BattleScene extends Phaser.Scene {
 
   // ---------------------------------------------------------------- animation
 
+  /**
+   * Darkest Dungeon style close-up for a decisive blow: dim the field, zoom between the
+   * attacker and the victim and slow the action a little; `on=false` restores the view.
+   */
+  private async closeUp(attackerId: string, victimId: string, on: boolean) {
+    const cam = this.cameras.main, a = this.units.get(attackerId), v = this.units.get(victimId);
+    if (on && a && v) {
+      this.dim ??= this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0).setDepth(9.5);
+      this.tweens.add({ targets: this.dim, fillAlpha: 0.55, duration: 260 });
+      a.box.setDepth(110); v.box.setDepth(105);
+      this.slow = 1.6;
+      cam.pan((a.box.x + v.box.x) / 2, GROUND - 52, 300, "Sine.easeInOut");
+      cam.zoomTo(2.9, 300, "Sine.easeInOut");
+      await new Promise<void>(r => this.time.delayedCall(320, r));
+    } else if (!on) {
+      await new Promise<void>(r => this.time.delayedCall(350, r)); // let the fall land
+      this.slow = 1;
+      if (this.dim) this.tweens.add({ targets: this.dim, fillAlpha: 0, duration: 260 });
+      cam.pan(W / 2, H / 2, 300, "Sine.easeInOut");
+      cam.zoomTo(2, 300, "Sine.easeInOut");
+      await new Promise<void>(r => this.time.delayedCall(320, r));
+    }
+  }
+
   /** Length of a pose's animation in ms at the current speed (sprites: a short beat). */
   private animMs(u: Unit, pose: Pose) {
     return u.rig ? rigDuration(u.rig.id, POSE_TO_RIG[pose]) * 1000 : 300; // wait()/tween() apply speed
   }
 
-  private ms(n: number) { return this.speed === "instant" ? 0 : this.speed === "fast" ? n / 2 : n; }
+  private ms(n: number) { return this.speed === "instant" ? 0 : (this.speed === "fast" ? n / 2 : n) * this.slow; }
 
   private frame() { return new Promise<void>(r => this.time.delayedCall(16, r)); }
 

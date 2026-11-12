@@ -6,18 +6,21 @@
 // conditions. Right before an engine call the two participants are placed on the
 // engine grid at a distance that satisfies its reach / range checks ("projection"),
 // everyone else is parked out of the way, and the formation is restored afterwards.
-import { C, D } from "../rules/engine.js";
+import { C, D, E } from "../rules/engine.js";
 
 export const RANKS = 4;
 export type Side = "allies" | "enemies";
 
-export type ActionKind = "attack" | "cast" | "channel" | "defend" | "swap" | "shove" | "pull";
+export type ActionKind = "attack" | "cast" | "channel" | "skill" | "defend" | "swap" | "shove" | "pull";
 
 export interface RankAction {
   kind: ActionKind;
   label: string;
   weaponId?: string;
   spellId?: string;
+  /** engine action for an active skill (technique, disarm, breath, …) */
+  action?: string;
+  techniqueId?: string;
   /** ranks the user may stand in */
   from: number[];
   /** enemy ranks it can reach (empty for self/ally actions) */
@@ -114,6 +117,7 @@ export function actionsFor(b: any, f: Formation, a: any): RankAction[] {
     out.push({ kind: "cast", label: `주문 · ${sp.name}`, spellId: sp.id, from: touch ? [1, 2] : ALL, to: touch ? MELEE_TARGETS : ALL });
     if (canChannel(a) && Number(sp.cn) > 0) out.push({ kind: "channel", label: `집중 · ${sp.name}`, spellId: sp.id, from: ALL, to: [] });
   }
+  out.push(...activeSkills(a));
   // Shove / pull wait for the rulebook text (kept in perform() but not offered).
   out.push({ kind: "swap", label: "자리 바꾸기", from: ALL, to: [] });
   out.push({ kind: "defend", label: "방어 태세", from: ALL, to: [] });
@@ -130,24 +134,63 @@ export function legalTargets(b: any, f: Formation, a: any, act: RankAction): str
 export function usable(b: any, f: Formation, a: any, act: RankAction): boolean {
   if (a.actionUsed || !overlaps(ranksOf(f, a.id), act.from)) return false;
   if ((act.kind === "cast" || act.kind === "channel") && !canCastNow(a, act.spellId)) return false;
-  if (act.kind === "defend" || act.kind === "channel") return true;
+  if (act.kind === "defend" || act.kind === "channel" || (act.kind === "skill" && !act.to.length)) return true;
   if (act.kind === "swap") return f[a.team as Side].length > 1;
   return legalTargets(b, f, a, act).length > 0;
+}
+
+// ------------------------------------------------------------------ active skills
+
+// Sword dances that strike a foe; the rest are stances on the dancer (engine: perform()).
+const TARGETED_DANCES = ["phoenix", "hawk", "water", "final"];
+
+/**
+ * Active commands from the v54 workshop's command list (actionGroups) that depend on a
+ * talent, trait, rune or sword dance. Plain attack / defend stay as their own buttons.
+ */
+function activeSkills(a: any): RankAction[] {
+  const out: RankAction[] = [];
+  const melee = [...a.weapons].filter((w: any) => !w.ranged && !w.freeOnly && !/맨손|unarmed/i.test(w.name))
+    .sort((x: any, y: any) => (y.damage ?? 0) - (x.damage ?? 0))[0] ?? a.weapons.find((w: any) => !w.ranged);
+  const meleeRanks = melee ? weaponRanks(melee).from : [1];
+  const add = (action: string, label: string, mode: "melee" | "ranged" | "self", extra: Partial<RankAction> = {}) =>
+    out.push({ kind: "skill", action, label, from: mode === "melee" ? meleeRanks : ALL, to: mode === "melee" ? MELEE_TARGETS : mode === "ranged" ? ALL : [], weaponId: mode === "melee" ? melee?.id : undefined, ...extra });
+
+  const dancer = C.swordDanceWeapon(a);
+  for (const id of a.techniques || []) {
+    const t = E.SWORD_TECHNIQUES.find((x: any) => x.id === id);
+    if (!t || !dancer) continue;
+    // Phoenix's Flight is a leaping strike the engine forbids while engaged: rank 2 only.
+    const hits = TARGETED_DANCES.includes(id), r = id === "phoenix" ? [2] : weaponRanks(dancer).from;
+    out.push({ kind: "skill", action: "technique", techniqueId: id, label: `검무 · ${t.name}`, weaponId: dancer.id, from: r, to: hits ? MELEE_TARGETS : [] });
+  }
+  for (const [id, talent] of [["disarm", "Disarm"], ["feint", "Feint"], ["beat", "Beat Blade"]]) if (C.talent(a, talent)) add(id, actionName(id), "melee");
+  for (const [id, t] of [["distract", "Distract"], ["frenzy", "Frenzy"]]) if (C.talent(a, t) || C.trait(a, t)) add(id, actionName(id), "self");
+  if (C.trait(a, "Bite")) add("bite", actionName("bite"), "melee", { from: [1, 2] });
+  if (C.trait(a, "Tail")) add("tail", actionName("tail"), "melee", { from: [1, 2] });
+  if (C.trait(a, "Breath")) add("breath", actionName("breath"), "melee", { from: [1, 2] });
+  const rune = (n: number, min = 1) => a.weapons.find((w: any) => (C.rune(a, n, w) || 0) >= min);
+  if (rune(13)) add("throw-rune", actionName("throw-rune"), "ranged", { weaponId: rune(13).id });
+  if (rune(5, 2)) add("rune-fire", actionName("rune-fire"), "ranged", { weaponId: rune(5, 2).id });
+  if (rune(65)) add("immolate", actionName("immolate"), "self", { weaponId: rune(65).id });
+  if (a.doomRunes?.length) add("doom", actionName("doom"), "self");
+  return out;
 }
 
 // ------------------------------------------------------------------ engine projection
 
 /** Puts actors on the engine grid so a rank-legal action also passes the engine's own checks. */
-function project(b: any, a: any, t: any, kind: ActionKind, ranged: boolean, f: Formation) {
+function project(b: any, a: any, t: any, kind: ActionKind, ranged: boolean, f: Formation, leap = false) {
   const saved = b.actors.map((x: any) => ({ id: x.id, x: x.x, y: x.y }));
   let ally = 0, enemy = 0;
   for (const x of b.actors) { // park everyone far apart and out of reach
     if (x.team === "allies") { x.x = 0; x.y = Math.min(b.config.height - 1, ally++ * 3); }
     else { x.x = b.config.width - 1; x.y = Math.min(b.config.height - 1, enemy++ * 3); }
   }
-  const gap = ranged ? Math.min(8, 2 * (rankOf(f, a.id) + rankOf(f, t.id) - 1)) : 1;
+  const gap = ranged ? Math.min(8, 2 * (rankOf(f, a.id) + rankOf(f, t.id) - 1)) : leap ? 3 : 1;
   a.x = 6; a.y = 6;
-  t.x = Math.min(b.config.width - C.footprint(t), a.x + gap); t.y = 6;
+  // Leave `gap` cells between the attacker's far edge and the target (big creatures cover several).
+  t.x = Math.min(b.config.width - C.footprint(t), a.x + C.footprint(a) - 1 + gap); t.y = 6;
   return () => { for (const s of saved) { const x = actor(b, s.id); x.x = s.x; x.y = s.y; } };
 }
 
@@ -156,7 +199,10 @@ function project(b: any, a: any, t: any, kind: ActionKind, ranged: boolean, f: F
  * Returns an error message when the engine refuses (the turn is NOT ended then).
  */
 export function perform(b: any, f: Formation, a: any, act: RankAction, targetId?: string): string | null {
-  if (C.current(b)?.id !== a.id) return "현재 차례가 아닙니다.";
+  // A refused engine call restores the battle from a backup, which replaces the actor
+  // objects; always work on the live ones.
+  a = actor(b, a.id);
+  if (C.current(b)?.id !== a?.id) return "현재 차례가 아닙니다.";
   if (!usable(b, f, a, act)) return "지금 위치에서는 쓸 수 없는 행동입니다.";
   const side = f[a.team as Side];
 
@@ -172,6 +218,11 @@ export function perform(b: any, f: Formation, a: any, act: RankAction, targetId?
     const sp = C.spellFor(a, act.spellId);
     C.perform(b, a.id, "channel", { spellId: act.spellId, wind: windFor(a, sp) });
     if (C.current(b)?.id === a.id) C.perform(b, a.id, "end", {});
+    return null;
+  }
+  if (act.kind === "skill" && !act.to.length) {
+    C.perform(b, a.id, act.action, { techniqueId: act.techniqueId, weaponId: act.weaponId });
+    if (b.status === "running" && C.current(b)?.id === a.id) C.perform(b, a.id, "end", {});
     return null;
   }
   if (act.kind === "defend") {
@@ -198,9 +249,10 @@ export function perform(b: any, f: Formation, a: any, act: RankAction, targetId?
   }
 
   const w = act.weaponId ? a.weapons.find((x: any) => x.id === act.weaponId) : null;
-  const restore = project(b, a, t, act.kind, act.kind === "cast" ? !/touch/i.test(C.spellFor(a, act.spellId)?.range || "") : !!w?.ranged, f);
+  const restore = project(b, a, t, act.kind, act.kind === "cast" ? !/touch/i.test(C.spellFor(a, act.spellId)?.range || "") : act.kind === "skill" ? ["throw-rune", "rune-fire"].includes(act.action!) : !!w?.ranged, f, act.techniqueId === "phoenix");
   try {
     if (act.kind === "attack") C.perform(b, a.id, "attack", { target: t.id, weaponId: act.weaponId });
+    else if (act.kind === "skill") C.perform(b, a.id, act.action, { target: t.id, weaponId: act.weaponId, techniqueId: act.techniqueId });
     else C.perform(b, a.id, "cast", { target: t.id, spellId: act.spellId });
   } catch (e) {
     restore();
@@ -215,16 +267,17 @@ export function perform(b: any, f: Formation, a: any, act: RankAction, targetId?
 // ------------------------------------------------------------------ simple AI
 
 /** Picks an action for a non-player actor: best reachable attack, else reposition, else defend. */
-export function aiChoose(b: any, f: Formation, a: any): { act: RankAction; target?: string } {
-  const acts = actionsFor(b, f, a);
+export function aiChoose(b: any, f: Formation, a: any, opts: { noSkills?: boolean } = {}): { act: RankAction; target?: string } {
+  const acts = actionsFor(b, f, a).filter(x => !(opts.noSkills && x.kind === "skill"));
   const prefersRanged = a.tactic === "ranged";
   let best: { act: RankAction; target: string; score: number } | null = null;
-  for (const act of acts.filter(x => (x.kind === "attack" || x.kind === "cast") && usable(b, f, a, x))) {
+  for (const act of acts.filter(x => (x.kind === "attack" || x.kind === "cast" || (x.kind === "skill" && x.to.length > 0)) && usable(b, f, a, x))) {
     for (const id of legalTargets(b, f, a, act)) {
       const t = actor(b, id);
       const w = act.weaponId ? a.weapons.find((x: any) => x.id === act.weaponId) : null;
       let score = w ? C.weaponBaseDamage(a, w) : 6;
       if (prefersRanged && (act.kind === "cast" || w?.ranged)) score += 3;
+      if (act.kind === "skill") score += 1; // use special moves when they reach
       score += 4 * (1 - t.wounds / Math.max(1, t.maxWounds)); // finish off the wounded
       score += Math.random();
       if (!best || score > best.score) best = { act, target: id, score };
@@ -237,8 +290,10 @@ export function aiChoose(b: any, f: Formation, a: any): { act: RankAction; targe
   const wantFront = i > 0 && attacks.some(x => x.from.includes(rankOf(f, side[i - 1])));
   const wantBack = i + 1 < side.length && attacks.some(x => x.from.includes(rankOf(f, side[i + 1]) + (f.width[side[i + 1]] ?? 1) - 1));
   const swap = acts.find(x => x.kind === "swap")!;
-  if (wantFront && C.conscious(actor(b, side[i - 1]))) return { act: swap, target: side[i - 1] };
-  if (wantBack) return { act: swap, target: side[i + 1] };
+  if (usable(b, f, a, swap)) {
+    if (wantFront && C.conscious(actor(b, side[i - 1]))) return { act: swap, target: side[i - 1] };
+    if (wantBack) return { act: swap, target: side[i + 1] };
+  }
   return { act: acts.find(x => x.kind === "defend")! };
 }
 
@@ -269,4 +324,16 @@ const canChannel = (a: any) => Object.keys(a.skills || {}).some(k => k.startsWit
 
 /** Mirrors the engine's casting blocks (burn-out, "cannot cast" effects, a disabled spell). */
 const canCastNow = (a: any, id?: string) =>
-  !a.burnout && !a.effects?.some((e: any) => e.kind === "cannotCast" || (e.kind === "disabledSpell" && (e.id === id || e.disabledSpell === id)));
+  (!id || !a.spellIds || a.spellIds.includes(id)) && !a.burnout && !a.effects?.some((e: any) => e.kind === "cannotCast" || (e.kind === "disabledSpell" && (e.id === id || e.disabledSpell === id)));
+
+/**
+ * The engine stops on rulings it leaves to the GM (miscast placement, odd armour qualities…).
+ * The workshop asked the GM in a dialog; the game has no GM yet, so it records the ruling as
+ * a note with no mechanical change (the workshop's "note" ruling) and returns its text.
+ */
+export function settlePending(b: any): string {
+  const p = b.pending;
+  if (!p) return "";
+  C.adjudicate(b, p.actor, { kind: "note", value: 0, note: `GM 판정 보류 → 효과 없이 진행: ${p.note || p.kind}` });
+  return p.note || p.kind;
+}

@@ -547,5 +547,333 @@
     }
    ]
   }
+ },
+ {
+  "sprite": "elf-swordmaster",
+  "state": {
+   "version": 1,
+   "saveId": "d434ca25-1195-4311-85a3-8b6d839f53aa",
+   "portrait": "",
+   "mount": null,
+   "halflingHome": "Mootland",
+   "halflingClan": null,
+   "badgerRiderApproved": false,
+   "badgerWarcry": false,
+   "dwarfOriginRules": true,
+   "woodKindred": "forestborn",
+   "woodKindredApproved": false,
+   "longbeard": false,
+   "longbeardApproved": false,
+   "longbeardPenalty": "fate",
+   "longbeardResources": {
+    "resilience": null,
+    "resolve": null
+   },
+   "dwarfGear": {
+    "enabled": false,
+    "hand": "Dwarf Axe",
+    "duel": "Shield",
+    "bow": "Dwarf Crossbow"
+   },
+   "dwarfCriminalApplies": true,
+   "archiveCollegeTrained": false,
+   "magicAcquisitions": [],
+   "magicCraftProjects": [],
+   "runeRecipes": [],
+   "forge": {
+    "mode": "npc",
+    "anvil": false,
+    "verified": false
+   },
+   "pointOverrides": {},
+   "knownTechniques": [
+    "phoenix",
+    "hawk",
+    "storm"
+   ],
+   "origin": "Sea Elf",
+   "customItems": [],
+   "equipped": [
+    "start-1",
+    "start-3",
+    "extra-0"
+   ],
+   "itemSpecs": {},
+   "runeItems": {},
+   "runeProjects": [],
+   "knownSpells": [],
+   "spellGrants": {},
+   "corruption": 0,
+   "magicLog": [],
+   "yenlui": "Balanced",
+   "burnout": null,
+   "difficulty": 1,
+   "species": "High Elf",
+   "career": "elf-swordmaster",
+   "originCareer": "elf-swordmaster",
+   "level": 2,
+   "section": "sheet",
+   "profile": {
+    "name": "엘프 소드마스터",
+    "age": "103",
+    "height": "203.2 cm",
+    "eyes": "",
+    "hair": "",
+    "ambition": "",
+    "party": "",
+    "background": "",
+    "faith": ""
+   },
+   "speciesRolls": [],
+   "careerOffer": null,
+   "careerReward": 0,
+   "bonusGear": [],
+   "gearChoices": {
+    "Clay Set or Painting Set": "Clay Set"
+   },
+   "statsMode": "first",
+   "statsRollCount": 1,
+   "rolls": [
+    15,
+    8,
+    5,
+    14,
+    10,
+    20,
+    15,
+    17,
+    14,
+    6
+   ],
+   "order": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "points": [
+    10,
+    10,
+    10,
+    10,
+    10,
+    10,
+    10,
+    10,
+    10,
+    10
+   ],
+   "bonus": [
+    2,
+    0,
+    1,
+    0,
+    3,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "speciesSkills": [
+    "Navigation",
+    "Evaluate",
+    "Leadership",
+    "Melee (Basic)",
+    "Play (any one)"
+   ],
+   "careerSkills": {
+    "Lore (Any)": 1,
+    "Dodge": 1,
+    "Melee (Brawling)": 1,
+    "Athletics": 2,
+    "Melee (Two- handed)": 1,
+    "Art (Painting or Sculpture)": 1,
+    "Melee (Basic)": 1
+   },
+   "specials": {
+    "Play (any one)": "Play (Horn)",
+    "Art (Painting or Sculpture)": "Art (Sculpture)",
+    "Lore (Any)": "Lore (Engineering)",
+    "Play (Any)": "Play (Horn)"
+   },
+   "speciesChoices": {
+    "1": "Savvy",
+    "3": "Second Sight"
+   },
+   "randomTalents": [],
+   "startingTalent": "Careful Strike",
+   "wealth": 22,
+   "goldPennies": 264,
+   "goldInitialized": true,
+   "purchases": [],
+   "moneyHistory": [],
+   "sheetNotes": {},
+   "finalized": true,
+   "xp": 100,
+   "xpEarned": 0,
+   "statAdv": {},
+   "skillAdv": {
+    "Art (Painting or Sculpture)": 3,
+    "Athletics": 3,
+    "Dodge": 3,
+    "Lore (Any)": 1
+   },
+   "boughtTalents": {
+    "Sword-dancing": 1
+   },
+   "extraGear": [
+    {
+     "item": "Greatsword of Hoeth",
+     "specId": "supp-greatsword-of-hoeth",
+     "automatic": false
+    }
+   ],
+   "tracker": 1,
+   "history": [
+    {
+     "kind": "skill",
+     "key": "Art (Painting or Sculpture)",
+     "cost": 50,
+     "amount": 5,
+     "trackerDelta": 1,
+     "career": "elf-swordmaster",
+     "level": 1,
+     "at": "2026-11-12T17:07:50.556Z"
+    },
+    {
+     "kind": "skill",
+     "key": "Art (Painting or Sculpture)",
+     "cost": 75,
+     "amount": 5,
+     "trackerDelta": 1,
+     "career": "elf-swordmaster",
+     "level": 1,
+     "at": "2026-11-12T17:07:50.556Z"
+    },
+    {
+     "kind": "skill",
+     "key": "Art (Painting or Sculpture)",
+     "cost": 100,
+     "amount": 5,
+     "trackerDelta": 1,
+     "career": "elf-swordmaster",
+     "level": 1,
+     "at": "2026-11-12T17:07:50.556Z"
+    },
+    {
+     "kind": "skill",
+     "key": "Athletics",
+     "cost": 100,
+     "amount": 5,
+     "trackerDelta": 1,
+     "career": "elf-swordmaster",
+     "level": 1,
+     "at": "2026-11-12T17:07:50.557Z"
+    },
+    {
+     "kind": "skill",
+     "key": "Athletics",
+     "cost": 150,
+     "amount": 5,
+     "trackerDelta": 1,
+     "career": "elf-swordmaster",
+     "level": 1,
+     "at": "2026-11-12T17:07:50.557Z"
+    },
+    {
+     "kind": "skill",
+     "key": "Athletics",
+     "cost": 250,
+     "amount": 5,
+     "trackerDelta": 1,
+     "career": "elf-swordmaster",
+     "level": 1,
+     "at": "2026-11-12T17:07:50.557Z"
+    },
+    {
+     "kind": "skill",
+     "key": "Dodge",
+     "cost": 75,
+     "amount": 5,
+     "trackerDelta": 1,
+     "career": "elf-swordmaster",
+     "level": 1,
+     "at": "2026-11-12T17:07:50.557Z"
+    },
+    {
+     "kind": "skill",
+     "key": "Dodge",
+     "cost": 100,
+     "amount": 5,
+     "trackerDelta": 1,
+     "career": "elf-swordmaster",
+     "level": 1,
+     "at": "2026-11-12T17:07:50.557Z"
+    },
+    {
+     "kind": "skill",
+     "key": "Dodge",
+     "cost": 150,
+     "amount": 5,
+     "trackerDelta": 1,
+     "career": "elf-swordmaster",
+     "level": 1,
+     "at": "2026-11-12T17:07:50.557Z"
+    },
+    {
+     "kind": "skill",
+     "key": "Lore (Any)",
+     "cost": 50,
+     "amount": 5,
+     "trackerDelta": 1,
+     "career": "elf-swordmaster",
+     "level": 1,
+     "at": "2026-11-12T17:07:50.557Z"
+    },
+    {
+     "trackerSpent": 10,
+     "trackerCarried": 0,
+     "kind": "promote",
+     "key": "2",
+     "cost": 100,
+     "at": "2026-11-12T17:07:50.557Z"
+    },
+    {
+     "kind": "talent",
+     "key": "Sword-dancing",
+     "cost": 100,
+     "amount": 5,
+     "trackerDelta": 1,
+     "career": "elf-swordmaster",
+     "level": 2,
+     "at": "2026-11-12T17:07:50.557Z"
+    },
+    {
+     "kind": "technique",
+     "key": "phoenix",
+     "cost": 100,
+     "at": "2026-11-12T17:07:50.557Z"
+    },
+    {
+     "kind": "technique",
+     "key": "hawk",
+     "cost": 200,
+     "at": "2026-11-12T17:07:50.557Z"
+    },
+    {
+     "kind": "technique",
+     "key": "storm",
+     "cost": 300,
+     "at": "2026-11-12T17:07:50.558Z"
+    }
+   ]
+  }
  }
 ]
