@@ -218,8 +218,8 @@ export class BattleScene extends Phaser.Scene {
   private async pump(gen: number) {
     while (gen === this.generation && this.b.status === "running") {
       if (this.b.pending) {
-        const note = K.settlePending(this.b);
-        this.hud.log(`GM 판정 필요: ${note} (게임에서는 효과 없이 기록만 하고 진행)`, "round");
+        const kind = this.b.pending.kind, note = K.settlePending(this.b);
+        this.hud.log(kind.startsWith("archive-") ? `규칙 판정: ${note}` : `GM 판정 필요: ${note} (게임에서는 효과 없이 기록만 하고 진행)`, "round");
         if (this.b.status !== "running") break;
       }
       const cur = C.current(this.b);

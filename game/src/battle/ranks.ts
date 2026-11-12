@@ -334,6 +334,10 @@ const canCastNow = (a: any, id?: string) =>
 export function settlePending(b: any): string {
   const p = b.pending;
   if (!p) return "";
+  // House rulings fixed by the user (2026-11): Impenetrable cancels the critical,
+  // Ring of Protection halves with the .5 rounded down.
+  if (p.kind === "archive-impenetrable") { C.resolveArchiveGM(b, "ignore"); return "완전 방호 → 치명상 무효"; }
+  if (p.kind === "archive-half") { C.resolveArchiveGM(b, "down"); return `보호의 반지 → ${p.amount} 운드를 반내림`; }
   C.adjudicate(b, p.actor, { kind: "note", value: 0, note: `GM 판정 보류 → 효과 없이 진행: ${p.note || p.kind}` });
   return p.note || p.kind;
 }
