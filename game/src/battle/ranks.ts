@@ -47,7 +47,8 @@ export function weaponRanks(w: any): { from: number[]; to: number[]; label: stri
 
 export function makeFormation(b: any): Formation {
   const width: Record<string, number> = {};
-  for (const a of b.actors) width[a.id] = C.footprint(a) > 1 ? 2 : 1;
+  // A Swarm is one rank however big the crowd; other Large+ creatures take two.
+  for (const a of b.actors) width[a.id] = C.footprint(a) > 1 && !C.trait(a, "Swarm") ? 2 : 1;
   const side = (team: Side) => {
     const ids: string[] = [];
     let used = 0;

@@ -1,0 +1,133 @@
+{
+  "version": 55,
+  "rigs": {
+    "human": {
+      "bones": 20,
+      "slots": 18,
+      "animations": 12,
+      "binaryBytes": 9418,
+      "path": "human/human.skel"
+    },
+    "high-elf": {
+      "bones": 20,
+      "slots": 18,
+      "animations": 12,
+      "binaryBytes": 9421,
+      "path": "high-elf/high-elf.skel"
+    },
+    "wood-elf": {
+      "bones": 20,
+      "slots": 18,
+      "animations": 12,
+      "binaryBytes": 9421,
+      "path": "wood-elf/wood-elf.skel"
+    },
+    "halfling": {
+      "bones": 20,
+      "slots": 18,
+      "animations": 12,
+      "binaryBytes": 9421,
+      "path": "halfling/halfling.skel"
+    },
+    "dwarf": {
+      "bones": 20,
+      "slots": 18,
+      "animations": 12,
+      "binaryBytes": 9418,
+      "path": "dwarf/dwarf.skel"
+    },
+    "human-cavalry": {
+      "bones": 36,
+      "slots": 34,
+      "animations": 12,
+      "binaryBytes": 14766,
+      "path": "human-cavalry/human-cavalry.skel"
+    },
+    "high-elf-cavalry": {
+      "bones": 36,
+      "slots": 34,
+      "animations": 12,
+      "binaryBytes": 14769,
+      "path": "high-elf-cavalry/high-elf-cavalry.skel"
+    },
+    "wood-elf-cavalry": {
+      "bones": 36,
+      "slots": 34,
+      "animations": 12,
+      "binaryBytes": 14769,
+      "path": "wood-elf-cavalry/wood-elf-cavalry.skel"
+    },
+    "dragon-prince-horse": {
+      "bones": 36,
+      "slots": 34,
+      "animations": 12,
+      "binaryBytes": 14772,
+      "path": "dragon-prince-horse/dragon-prince-horse.skel"
+    },
+    "dragon-prince-dragon": {
+      "bones": 38,
+      "slots": 36,
+      "animations": 12,
+      "binaryBytes": 15750,
+      "path": "dragon-prince-dragon/dragon-prince-dragon.skel"
+    },
+    "human-cavalry-on-foot": {
+      "bones": 20,
+      "slots": 18,
+      "animations": 12,
+      "binaryBytes": 9434,
+      "path": "human-cavalry-on-foot/human-cavalry-on-foot.skel"
+    },
+    "high-elf-cavalry-on-foot": {
+      "bones": 20,
+      "slots": 18,
+      "animations": 12,
+      "binaryBytes": 9437,
+      "path": "high-elf-cavalry-on-foot/high-elf-cavalry-on-foot.skel"
+    },
+    "wood-elf-cavalry-on-foot": {
+      "bones": 20,
+      "slots": 18,
+      "animations": 12,
+      "binaryBytes": 9437,
+      "path": "wood-elf-cavalry-on-foot/wood-elf-cavalry-on-foot.skel"
+    },
+    "dragon-prince-on-foot": {
+      "bones": 20,
+      "slots": 18,
+      "animations": 12,
+      "binaryBytes": 9434,
+      "path": "dragon-prince-on-foot/dragon-prince-on-foot.skel"
+    }
+  },
+  "names": {
+    "human": "인간",
+    "high-elf": "하이엘프",
+    "wood-elf": "우드엘프",
+    "halfling": "하플링",
+    "dwarf": "드워프",
+    "human-cavalry": "인간 기병",
+    "high-elf-cavalry": "하이엘프 기병 · 실버헬름",
+    "wood-elf-cavalry": "우드엘프 기병",
+    "dragon-prince-horse": "드래곤프린스 · 말",
+    "dragon-prince-dragon": "드래곤프린스 · 드래곤",
+    "human-cavalry-on-foot": "인간 기병 · 하마",
+    "high-elf-cavalry-on-foot": "하이엘프 기병 · 실버헬름 · 하마",
+    "wood-elf-cavalry-on-foot": "우드엘프 기병 · 하마",
+    "dragon-prince-on-foot": "드래곤프린스 · 하마"
+  },
+  "poses": [
+    "combat",
+    "attack",
+    "skill",
+    "hurt",
+    "down",
+    "walk",
+    "camp",
+    "victory",
+    "heroic",
+    "afflicted",
+    "defend",
+    "investigate"
+  ]
+}

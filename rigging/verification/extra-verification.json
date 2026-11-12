@@ -1,0 +1,18 @@
+{
+  "viewerMobile": {
+    "pageWidth": 390,
+    "viewport": 390
+  },
+  "realMountFall": {
+    "seed": 1,
+    "log": [
+      "낙마 검증 · 전마(데스트리어) 탑승 · 탈것 이동력 4 · 기수/탈것 체력 분리",
+      "낙마 검증 · 기수/탈것 전투 불능·넘어짐: 낙마",
+      "낙마 검증 · 3야드 낙마 피해 10 · 강인함 적용, 방어점 제외"
+    ],
+    "mountId": null,
+    "prone": 1,
+    "rig": "human-cavalry-on-foot",
+    "pose": "down"
+  }
+}

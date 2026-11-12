@@ -23,6 +23,7 @@ npm run demo-party   # 시연용 파티(인간 검사·드워프 전사·엘프 
 | `game/src/battle/ranks.ts` | 다키스트 던전식 4열 규칙: 무기별 사용 열·대상 열, 자리 바꾸기, 밀치기·끌어오기, AI |
 | `game/src/assets/sprites/<유닛>/<포즈>.png` | 최종 도트 (없으면 `placeholder/` 임시 도트) |
 | `game/src/story/` | Ink 분기 대화 프로토타입 (스토리 단계에서 다시 연결) |
+| `rigging/` | 워해머 v55 리깅 소스 (Spine 2.1, 14개 골격 × 12개 동작). 아군 캐릭터는 이 리깅으로 그립니다 (`game/src/battle/rig.ts`) |
 | `docs/SPRITE_SPEC.md` | GPT 도트 제작 규격·프롬프트 |
 | `docs/art/` | 공방에서 추출한 레퍼런스 일러스트 (`tools/extract_art.py`) |
 | `docs/art/pdf/` | PDF 다섯 권에서 고른 인물 일러스트 (`tools/extract_pdf_art.py`) |

@@ -1,0 +1,15 @@
+human: 9418 bytes / 12 animations
+high-elf: 9421 bytes / 12 animations
+wood-elf: 9421 bytes / 12 animations
+halfling: 9421 bytes / 12 animations
+dwarf: 9418 bytes / 12 animations
+human-cavalry: 14766 bytes / 12 animations
+high-elf-cavalry: 14769 bytes / 12 animations
+wood-elf-cavalry: 14769 bytes / 12 animations
+dragon-prince-horse: 14772 bytes / 12 animations
+dragon-prince-dragon: 15750 bytes / 12 animations
+human-cavalry-on-foot: 9434 bytes / 12 animations
+high-elf-cavalry-on-foot: 9437 bytes / 12 animations
+wood-elf-cavalry-on-foot: 9437 bytes / 12 animations
+dragon-prince-on-foot: 9434 bytes / 12 animations
+Preview ready: python -m http.server 8000

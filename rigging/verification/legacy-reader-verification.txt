@@ -1,0 +1,15 @@
+PASS dwarf bones=20 slots=18 animations=12
+PASS wood-elf bones=20 slots=18 animations=12
+PASS human bones=20 slots=18 animations=12
+PASS dragon-prince-dragon bones=38 slots=36 animations=12
+PASS high-elf-cavalry bones=36 slots=34 animations=12
+PASS halfling bones=20 slots=18 animations=12
+PASS wood-elf-cavalry bones=36 slots=34 animations=12
+PASS human-cavalry-on-foot bones=20 slots=18 animations=12
+PASS wood-elf-cavalry-on-foot bones=20 slots=18 animations=12
+PASS high-elf bones=20 slots=18 animations=12
+PASS human-cavalry bones=36 slots=34 animations=12
+PASS dragon-prince-horse bones=36 slots=34 animations=12
+PASS high-elf-cavalry-on-foot bones=20 slots=18 animations=12
+PASS dragon-prince-on-foot bones=20 slots=18 animations=12
+PASS ALL: 14 binary skeletons, 1512 animation samples compared to JSON in official legacy reader

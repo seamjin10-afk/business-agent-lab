@@ -4,6 +4,7 @@ import { BattleSetup, DEFAULT_SETUP, Roster, createDemoBattle, playerControls } 
 import { Pose, buildGenericTextures, hasPose, preloadSprites, spriteKey } from "./sprites";
 import { Hud, Speed } from "./hud";
 import * as K from "./ranks";
+import { RigPose, drawRig, hasRig, resolveRig, rigDuration, rigsReady } from "./rig";
 import demoParty from "../data/demo-party.json";
 
 const W = 640, H = 424;
@@ -24,7 +25,13 @@ interface Unit {
   rankTag: Phaser.GameObjects.Text;
   facing: 1 | -1;
   n: number;
+  rig?: { id: string; tex: Phaser.Textures.CanvasTexture; pose: RigPose; start: number };
 }
+
+// Rig canvas per unit, in world px (drawn at 2x for the zoomed camera).
+const RIG_W = 210, RIG_H = 180, RIG_FOOT = 8, RIG_HEIGHT = 118;
+const POSE_TO_RIG: Record<Pose, RigPose> = { idle: "combat", move: "walk", melee: "attack", ranged: "attack", cast: "skill", hit: "hurt", death: "down" };
+const LOOPING: RigPose[] = ["combat", "walk", "afflicted", "victory", "camp"];
 
 /**
  * Rank battle (Darkest Dungeon style): both sides stand in 4 ranks facing each other.
@@ -53,7 +60,23 @@ export class BattleScene extends Phaser.Scene {
 
   preload() { preloadSprites(this); }
 
+  /** Redraws every rigged unit's canvas for its current pose and time. */
+  update() {
+    const now = this.time.now;
+    for (const u of this.units.values()) {
+      if (!u.rig) continue;
+      const { id, tex, pose, start } = u.rig, D = rigDuration(id, pose);
+      const elapsed = (now - start) / 1000 * (this.speed === "fast" ? 2 : 1);
+      const t = LOOPING.includes(pose) ? elapsed % D : Math.min(D, this.speed === "instant" ? D : elapsed);
+      const ctx = tex.getContext();
+      ctx.clearRect(0, 0, tex.width, tex.height);
+      drawRig(ctx, id, pose, t, tex.width / 2, tex.height - RIG_FOOT * 2, RIG_HEIGHT * 2 * u.n, u.facing < 0);
+      tex.refresh();
+    }
+  }
+
   create() {
+    this.cameras.main.setZoom(2).centerOn(W / 2, H / 2); // 640×424 world on a 1280×848 canvas
     buildGenericTextures(this);
     drawBackdrop(this);
     this.marks = this.add.graphics().setDepth(5);
@@ -65,7 +88,7 @@ export class BattleScene extends Phaser.Scene {
     }, (demoParty as any[]).map(p => p.state.profile.name));
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => this.onClick(p));
     if (location.search.includes("debug")) (window as any).__battle = () => ({ b: this.b, f: this.f, busy: this.busy, pos: (id: string) => { const u = this.units.get(id)!; return { x: u.box.x, y: u.box.y - 24 }; } });
-    this.start(this.hud.current);
+    rigsReady.then(() => this.start(this.hud.current));
   }
 
   // ---------------------------------------------------------------- setup
@@ -75,7 +98,7 @@ export class BattleScene extends Phaser.Scene {
     this.setup = setup;
     this.roster = createDemoBattle(setup);
     this.f = K.makeFormation(this.b);
-    this.units.forEach(u => u.box.destroy());
+    this.units.forEach(u => { u.box.destroy(); if (u.rig) this.textures.remove(u.rig.tex); });
     this.units.clear();
     this.tweens.killAll();
     this.fxObjects.forEach(o => o.destroy());
@@ -92,7 +115,7 @@ export class BattleScene extends Phaser.Scene {
 
   private makeUnit(a: any): Unit {
     const sprite = this.roster.sprites[a.id] || "generic";
-    const n = C.footprint(a) > 1 ? 1.5 : 1;
+    const n = C.footprint(a) > 1 && !C.trait(a, "Swarm") ? 1.5 : 1;
     const box = this.add.container(0, GROUND);
     const shadow = this.add.ellipse(0, -2, 34 * n, 9, 0x000000, 0.35);
     const ring = this.add.ellipse(0, -2, 38 * n, 11).setStrokeStyle(1, a.team === "allies" ? ALLY : ENEMY, 0.9);
@@ -102,14 +125,24 @@ export class BattleScene extends Phaser.Scene {
       c.setScale((56 * n) / c.width);
       crowd.push(c);
     }
-    const body = this.add.image(0, 0, spriteKey(sprite, "idle")).setOrigin(0.5, 1);
-    body.setScale((64 * n) / body.width);
-    const top = -Math.min(body.displayHeight, 60 * n) - 6;
+    const rigId = resolveRig(a);
+    let rig: Unit["rig"];
+    let body: Phaser.GameObjects.Image;
+    if (hasRig(rigId)) {
+      const key = `rig-${a.id}-${this.generation}`;
+      const tex = this.textures.createCanvas(key, RIG_W * 2 * n, RIG_H * 2 * n)!;
+      rig = { id: rigId!, tex, pose: "combat", start: this.time.now };
+      body = this.add.image(0, 0, key).setOrigin(0.5, 1 - (RIG_FOOT * 2) / tex.height).setScale(0.5);
+    } else {
+      body = this.add.image(0, 0, spriteKey(sprite, "idle")).setOrigin(0.5, 1);
+      body.setScale((64 * n) / body.width);
+    }
+    const top = rig ? -RIG_HEIGHT * 0.8 * n : -Math.min(body.displayHeight, 60 * n) - 6;
     const hpBack = this.add.rectangle(0, top, 36, 4, 0x000000, 0.7);
     const hpFill = this.add.rectangle(-18, top, 36, 4, a.team === "allies" ? 0x6be36b : 0xe35b5b).setOrigin(0, 0.5);
     const rankTag = this.add.text(0, 10, "", { fontFamily: "monospace", fontSize: "9px", color: "#a49c90" }).setOrigin(0.5, 0).setResolution(2);
     box.add([shadow, ring, ...crowd, body, hpBack, hpFill, rankTag]);
-    const u: Unit = { id: a.id, sprite, team: a.team, box, body, crowd, hpFill, hpBack, rankTag, facing: a.team === "allies" ? 1 : -1, n };
+    const u: Unit = { id: a.id, sprite, team: a.team, box, body, crowd, hpFill, hpBack, rankTag, facing: a.team === "allies" ? 1 : -1, n, rig };
     this.setPose(u, "idle");
     this.setHp(u, a.wounds, a.maxWounds, false);
     return u;
@@ -151,6 +184,15 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private setPose(u: Unit, pose: Pose) {
+    if (u.rig) {
+      // Resting pose reflects the actor's state: fallen, panicking, or ready.
+      const a = this.b.actors.find((x: any) => x.id === u.id);
+      let rp = POSE_TO_RIG[pose];
+      if (pose === "idle" && a) rp = !C.conscious(a) ? "down" : a.conditions?.Broken ? "afflicted" : "combat";
+      if (u.rig.pose !== rp || !LOOPING.includes(rp)) u.rig.start = this.time.now;
+      u.rig.pose = rp;
+      return;
+    }
     u.body.setTexture(spriteKey(u.sprite, pose));
     u.body.setFlipX(u.facing < 0);
     u.crowd.forEach(c => { c.setTexture(spriteKey(u.sprite, pose)); c.setFlipX(u.facing < 0); });
@@ -218,6 +260,10 @@ export class BattleScene extends Phaser.Scene {
 
   private finish() {
     this.marks.clear();
+    for (const u of this.units.values()) {
+      const a = this.b.actors.find((x: any) => x.id === u.id);
+      if (u.rig && a && C.conscious(a) && a.team === this.b.winner) { u.rig.pose = "victory"; u.rig.start = this.time.now; }
+    }
     this.hud.order(this.b, this.view, undefined);
     this.hud.idle("전투 종료");
     this.hud.log(this.b.winner === "allies" ? "아군 승리" : this.b.winner === "enemies" ? "아군 패배" : "전투 종료", "round");
@@ -379,7 +425,7 @@ export class BattleScene extends Phaser.Scene {
   private async death(scene: any) {
     const u = this.units.get(scene.actor);
     if (!u) return;
-    if (hasPose(u.sprite, "death")) this.setPose(u, "death");
+    if (u.rig || hasPose(u.sprite, "death")) this.setPose(u, "death");
     else await this.tween({ targets: u.body, angle: 90 * -u.facing, y: -4, duration: 260, ease: "Quad.easeIn" });
     u.body.setTint(0x888888);
     u.hpBack.setVisible(false);
