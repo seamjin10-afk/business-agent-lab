@@ -375,8 +375,16 @@ export class BattleScene extends Phaser.Scene {
     const gen = this.generation;
     let err: string | null = null;
     const fortune = this.useFortune && (a.fortune || 0) > 0;
-    await this.resolve(() => { err = K.perform(this.b, this.f, a, act, target, { fortune }); });
+    await this.resolve(() => { err = K.perform(this.b, this.f, a, act, target, { fortune, shieldPush: "ask" }); });
     if (gen !== this.generation) return;
+    const push = this.f.pendingPush;
+    if (push) { // Shieldsman: the player decides after winning the exchange
+      const t = this.b.actors.find((x: any) => x.id === push.target);
+      const yes = await this.hud.ask(`방패 전사: 근접에서 이겼습니다. 모멘텀을 써서 ${t?.name}을(를) 한 열 밀어낼까요?`, "밀어낸다", "그대로 둔다");
+      if (gen !== this.generation) return;
+      if (yes) await this.resolve(() => K.shieldsmanPush(this.b, this.f, push.attacker, push.target));
+      else this.f.pendingPush = null;
+    }
     if (!err) this.useFortune = false;
     this.error = err ?? "";
     if (err && C.current(this.b)?.id === a.id) this.refreshControls();

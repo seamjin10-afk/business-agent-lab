@@ -32,6 +32,8 @@ export interface Formation {
   allies: string[]; enemies: string[]; width: Record<string, number>;
   /** ally id → guardian id: attacks on the ally go to the guardian until the guardian's next turn */
   guard: Record<string, string>;
+  /** a Shieldsman push waiting for the player's yes/no */
+  pendingPush?: { attacker: string; target: string } | null;
 }
 
 const ALL = [1, 2, 3, 4];
@@ -220,7 +222,7 @@ function project(b: any, a: any, t: any, kind: ActionKind, ranged: boolean, f: F
  * Executes a rank action for the current actor and ends their turn.
  * Returns an error message when the engine refuses (the turn is NOT ended then).
  */
-export function perform(b: any, f: Formation, a: any, act: RankAction, targetId?: string, opts: { fortune?: boolean; shieldPush?: boolean } = {}): string | null {
+export function perform(b: any, f: Formation, a: any, act: RankAction, targetId?: string, opts: { fortune?: boolean; shieldPush?: "auto" | "ask" } = {}): string | null {
   // A refused engine call restores the battle from a backup, which replaces the actor
   // objects; always work on the live ones.
   a = actor(b, a.id);
@@ -287,6 +289,7 @@ export function perform(b: any, f: Formation, a: any, act: RankAction, targetId?
 
   const w = act.weaponId ? a.weapons.find((x: any) => x.id === act.weaponId) : null;
   let result: any = null;
+  const unshield = lendShield(b, f, t);
   const restore = project(b, a, t, act.kind, act.kind === "cast" ? !/touch/i.test(C.spellFor(a, act.spellId)?.range || "") : act.kind === "skill" ? ["throw-rune", "rune-fire"].includes(act.action!) : !!w?.ranged, f, act.techniqueId === "phoenix" || act.kind === "charge");
   try {
     if (act.kind === "attack") result = C.perform(b, a.id, "attack", { target: t.id, weaponId: act.weaponId, fortuneAdvantage: opts.fortune });
@@ -294,11 +297,14 @@ export function perform(b: any, f: Formation, a: any, act: RankAction, targetId?
     else if (act.kind === "skill") result = C.perform(b, a.id, act.action, { target: t.id, weaponId: act.weaponId, techniqueId: act.techniqueId, fortuneAdvantage: opts.fortune });
     else C.perform(b, a.id, "cast", { target: t.id, spellId: act.spellId, fortuneAdvantage: opts.fortune });
   } catch (e) {
-    restore();
+    restore(); unshield();
     return (e as Error).message;
   }
-  restore();
-  if (["attack", "charge", "skill"].includes(act.kind) && !w?.ranged && result?.won && opts.shieldPush !== false) shieldsmanPush(b, f, actor(b, a.id), actor(b, t.id));
+  restore(); unshield();
+  if (["attack", "charge", "skill"].includes(act.kind) && !w?.ranged && result?.won && canShieldPush(b, f, actor(b, a.id), actor(b, t.id))) {
+    if (opts.shieldPush === "ask") f.pendingPush = { attacker: a.id, target: t.id };
+    else shieldsmanPush(b, f, a.id, t.id);
+  }
   if (act.kind === "charge") { // the charger now fights from the front
     const live = actor(b, a.id), i = side.indexOf(a.id);
     if (live && C.conscious(live) && i > 0) { side.splice(i, 1); side.unshift(a.id); }
@@ -466,17 +472,45 @@ function castPush(b: any, f: Formation, a: any, act: RankAction): string | null 
   return null;
 }
 
+/** Whether a Shieldsman push is available after a won melee exchange. */
+export function canShieldPush(b: any, f: Formation, a: any, t: any) {
+  if (!a || !t || !C.active(t) || !C.talent(a, "Shieldsman") || !a.advantage || !(a.shield > 0)) return false;
+  return a.shieldPushRound !== b.round && !C.trait(t, "Swarm") && !(f.width[t.id] > 1);
+}
+
 /**
- * Shieldsman (talent text in the v54 data, not wired up there): once per round, after
- * winning a melee exchange with a shield, spend Momentum to push the foe 2 yards back and
- * end the engagement — one rank here.
+ * Shieldsman push (talent text in the v54 data, not wired up there): once per round,
+ * after winning a melee exchange with a shield, spend Momentum to push the foe 2 yards
+ * back and end the engagement — one rank here.
  */
-function shieldsmanPush(b: any, f: Formation, a: any, t: any) {
-  if (!a || !t || !C.active(t) || !C.talent(a, "Shieldsman") || !a.advantage) return;
-  if (!(a.shields?.length || a.weapons?.some((w: any) => w.qualities?.Shield))) return;
-  if (a.shieldPushRound === b.round || C.trait(t, "Swarm") || f.width[t.id] > 1) return;
+export function shieldsmanPush(b: any, f: Formation, attackerId: string, targetId: string) {
+  const a = actor(b, attackerId), t = actor(b, targetId);
+  f.pendingPush = null;
+  if (!canShieldPush(b, f, a, t)) return;
   a.advantage = 0;
   a.shieldPushRound = b.round;
   const n = pushBack(f, t.id, 1);
   note(b, n ? `${a.name} · 방패 전사: 모멘텀을 써서 ${t.name}을(를) 한 열 밀어냄` : `${a.name} · 방패 전사: 모멘텀을 썼지만 ${t.name} 뒤에 자리가 없음`);
+}
+
+/**
+ * Shieldsman shield cover, extended (user rule, 2026-11): every ally standing behind a
+ * Shieldsman with a shield fights with that shield's rating (AP and the shield defence
+ * bonus) for the engine call. The first cover in a round spends the Shieldsman's Momentum,
+ * as the talent's "once per round, spend Momentum". Returns the undo.
+ */
+function lendShield(b: any, f: Formation, t: any): () => void {
+  if (!t || t.shield > 0) return () => {};
+  const side = f[t.team as Side];
+  const cover = side.map(id => actor(b, id)).find(s => s && s.id !== t.id && C.talent(s, "Shieldsman") && s.shield > 0
+    && C.conscious(s) && rankOf(f, s.id) < rankOf(f, t.id) && (s.shieldWallRound === b.round || s.advantage > 0));
+  if (!cover) return () => {};
+  if (cover.shieldWallRound !== b.round) {
+    cover.advantage = 0;
+    cover.shieldWallRound = b.round;
+    note(b, `${cover.name} · 방패 전사: 모멘텀을 써서 이번 라운드 뒤 열 아군을 방패로 엄호`);
+  }
+  const id = t.id;
+  actor(b, id).shield = cover.shield;
+  return () => { const live = actor(b, id); if (live) live.shield = 0; };
 }

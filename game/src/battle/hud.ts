@@ -95,6 +95,13 @@ export class Hud {
     return out;
   }
 
+  /** A yes/no decision in the action bar (e.g. Shieldsman push after a won exchange). */
+  ask(question: string, yes: string, no: string): Promise<boolean> {
+    $("hud-actions").innerHTML = `<div class="who">${esc(question)}</div>
+      <div class="btns"><button id="hud-yes" class="primary">${esc(yes)}</button><button id="hud-no">${esc(no)}</button></div>`;
+    return new Promise(r => { $("hud-yes").onclick = () => r(true); $("hud-no").onclick = () => r(false); });
+  }
+
   forecast(text: string) {
     const el = document.getElementById("hud-forecast");
     if (el) el.textContent = text;
