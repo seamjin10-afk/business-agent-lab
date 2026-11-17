@@ -1,9 +1,10 @@
 import Phaser from "phaser";
-import { C, F } from "../rules/engine.js";
-import { BattleSetup, DEFAULT_SETUP, Roster, createDemoBattle, playerControls } from "./setup";
+import { C, D, F } from "../rules/engine.js";
+import { BattleSetup, DEFAULT_SETUP, Roster, createDemoBattle, partyActors, playerControls } from "./setup";
 import { Pose, buildGenericTextures, hasPose, preloadSprites, spriteKey } from "./sprites";
 import { Hud, Speed } from "./hud";
 import * as K from "./ranks";
+import * as St from "./stress";
 import { RigPose, WeaponLook, drawRig, hasRig, resolveRig, rigDuration, rigsReady, weaponLook } from "./rig";
 import demoParty from "../data/demo-party.json";
 
@@ -23,6 +24,8 @@ interface Unit {
   hpFill: Phaser.GameObjects.Rectangle;
   hpBack: Phaser.GameObjects.Rectangle;
   rankTag: Phaser.GameObjects.Text;
+  stressFill?: Phaser.GameObjects.Rectangle;
+  badges: Phaser.GameObjects.Text;
   facing: 1 | -1;
   n: number;
   rig?: { id: string; tex: Phaser.Textures.CanvasTexture; pose: RigPose; start: number; weapon: WeaponLook | null };
@@ -55,6 +58,11 @@ export class BattleScene extends Phaser.Scene {
   private generation = 0;
   private fxObjects = new Set<Phaser.GameObjects.GameObject>();
   private slow = 1;                                  // >1 during a close-up
+  private stress: St.StressBook = {};
+  private turnKey = "";                              // round:turn:actor of the turn last started
+  private lastRound = 0;
+  private useFortune = false;                        // spend Fortune on the next roll
+  private hoverId = "";
   private dim?: Phaser.GameObjects.Rectangle;        // close-up backdrop shade
 
   constructor() { super("battle"); }
@@ -88,9 +96,13 @@ export class BattleScene extends Phaser.Scene {
       speed: s => { this.speed = s; },
       choose: c => this.choose(c),
       endTurn: () => this.endTurn(),
-    }, (demoParty as any[]).map(p => p.state.profile.name));
+      toggleFortune: on => { this.useFortune = on; },
+      fortuneCondition: c => this.fortuneCondition(c),
+      fate: () => this.spendFate(),
+    }, partyActors().map(a => ({ name: a.name, options: K.loadoutOptions(a).map(o => ({ key: K.skillKey(o), label: o.label })) })));
+    this.input.on("pointermove", (p: Phaser.Input.Pointer) => this.onHover(p));
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => this.onClick(p));
-    if (location.search.includes("debug")) (window as any).__battle = () => ({ b: this.b, f: this.f, busy: this.busy, zoom: this.cameras.main.zoom, pos: (id: string) => { const u = this.units.get(id)!; return { x: u.box.x, y: u.box.y - 24 }; } });
+    if (location.search.includes("debug")) (window as any).__battle = () => ({ scene: this, b: this.b, f: this.f, busy: this.busy, zoom: this.cameras.main.zoom, pos: (id: string) => { const u = this.units.get(id)!; return { x: u.box.x, y: u.box.y - 24 }; } });
     rigsReady.then(() => this.start(this.hud.current));
   }
 
@@ -101,9 +113,12 @@ export class BattleScene extends Phaser.Scene {
     this.setup = setup;
     this.roster = createDemoBattle(setup);
     this.f = K.makeFormation(this.b);
+    this.stress = St.newBook(this.b);
+    this.turnKey = ""; this.lastRound = 0; this.useFortune = false;
     this.units.forEach(u => { u.box.destroy(); if (u.rig) this.textures.remove(u.rig.tex); });
     this.units.clear();
     this.tweens.killAll();
+    this.time.removeAllEvents(); // a battle restarted mid-animation must not touch the old units
     this.fxObjects.forEach(o => o.destroy());
     this.slow = 1;
     this.dim?.setFillStyle(0x000000, 0);
@@ -147,8 +162,17 @@ export class BattleScene extends Phaser.Scene {
     const hpBack = this.add.rectangle(0, top, 36, 4, 0x000000, 0.7);
     const hpFill = this.add.rectangle(-18, top, 36, 4, a.team === "allies" ? 0x6be36b : 0xe35b5b).setOrigin(0, 0.5);
     const rankTag = this.add.text(0, 10, "", { fontFamily: "monospace", fontSize: "9px", color: "#a49c90" }).setOrigin(0.5, 0).setResolution(2);
-    box.add([shadow, ring, ...crowd, body, hpBack, hpFill, rankTag]);
-    const u: Unit = { id: a.id, sprite, team: a.team, box, body, crowd, hpFill, hpBack, rankTag, facing: a.team === "allies" ? 1 : -1, n, rig };
+    const parts: Phaser.GameObjects.GameObject[] = [shadow, ring, ...crowd, body, hpBack, hpFill, rankTag];
+    let stressFill: Phaser.GameObjects.Rectangle | undefined;
+    if (a.team === "allies") { // Darkest Dungeon stress bar under the HP bar
+      parts.push(this.add.rectangle(0, top + 5, 36, 3, 0x000000, 0.7));
+      stressFill = this.add.rectangle(-18, top + 5, 36, 3, 0xd8d8f0).setOrigin(0, 0.5).setScale(0, 1);
+      parts.push(stressFill);
+    }
+    const badges = this.add.text(0, top - 4, "", { fontFamily: "sans-serif", fontSize: "8px", color: "#ffd27a", stroke: "#000", strokeThickness: 2, align: "center" }).setOrigin(0.5, 1).setResolution(3);
+    parts.push(badges);
+    box.add(parts);
+    const u: Unit = { id: a.id, sprite, team: a.team, box, body, crowd, hpFill, hpBack, rankTag, stressFill, badges, facing: a.team === "allies" ? 1 : -1, n, rig };
     this.setPose(u, "idle");
     this.setHp(u, a.wounds, a.maxWounds, false);
     return u;
@@ -223,7 +247,9 @@ export class BattleScene extends Phaser.Scene {
         if (this.b.status !== "running") break;
       }
       const cur = C.current(this.b);
-      this.hud.order(this.b, this.view, cur?.id);
+      if (cur && `${this.b.round}:${this.b.turn}:${cur.id}` !== this.turnKey) await this.beginTurn(cur);
+      if (this.b.status !== "running") break;
+      this.hud.order(this.b, this.view, cur?.id, this.stress);
       if (!cur || K.cannotAct(cur)) {
         const why = cur && C.conscious(cur) ? K.stuckReason(cur) : "";
         if (why) this.hud.log(`${cur.name} · ${why}로 행동하지 못함`, cur.team);
@@ -232,7 +258,8 @@ export class BattleScene extends Phaser.Scene {
       }
       if (playerControls(this.setup, this.b, cur)) {
         this.b.controlled = cur.id;
-        this.choice = K.actionsFor(this.b, this.f, cur).find(x => K.usable(this.b, this.f, cur, x) && x.kind !== "defend" && x.kind !== "swap") ?? null;
+        const acts = K.actionsFor(this.b, this.f, cur).filter(x => K.usable(this.b, this.f, cur, x));
+        this.choice = acts.find(x => ["attack", "cast", "skill", "charge"].includes(x.kind) && x.to.length) ?? acts.find(x => x.kind !== "defend" && x.kind !== "swap") ?? null;
         this.refreshControls();
         return; // resumes from a click / end turn
       }
@@ -258,6 +285,7 @@ export class BattleScene extends Phaser.Scene {
     this.view = F.presentationSnapshot(this.b);
     const since = this.b.logCounter;
     const standing = new Set(this.b.actors.filter((x: any) => C.conscious(x)).map((x: any) => x.id));
+    const before = St.snapshot(this.b), actorId = C.current(this.b)?.id ?? null;
     try { run(); } finally {
       const scenes = F.presentationScenes(F.visualEvents(this.b, since));
       // Decisive moment: someone who was standing goes down in this action → close-up.
@@ -267,6 +295,8 @@ export class BattleScene extends Phaser.Scene {
       for (const s of scenes) await this.play(s);
       if (blow && this.speed !== "instant") await this.closeUp(blow.actor, felled.id, false);
       for (const a of this.b.actors) { const u = this.units.get(a.id); if (u) this.setHp(u, a.wounds, a.maxWounds, false); }
+      await this.showStress(St.settle(this.b, this.stress, before, actorId));
+      this.refreshBadges();
       K.compact(this.b, this.f);
       await this.layout(true);
       this.busy = false;
@@ -309,8 +339,13 @@ export class BattleScene extends Phaser.Scene {
     const a = C.current(this.b);
     if (!a || !playerControls(this.setup, this.b, a)) return;
     const acts = K.actionsFor(this.b, this.f, a);
-    this.hud.controls(a, K.rankOf(this.f, a.id), acts.map(x => ({ ...x, ok: K.usable(this.b, this.f, a, x) })), this.choice, this.error);
+    this.hud.controls(a, K.rankOf(this.f, a.id), acts.map(x => ({ ...x, ok: K.usable(this.b, this.f, a, x) })), this.choice, this.error, {
+      fortune: a.fortune || 0, fate: a.fate || 0, deathsDoor: St.atDeathsDoor(a), useFortune: this.useFortune && (a.fortune || 0) > 0,
+      conditions: Object.keys(a.conditions || {}).filter(c => a.conditions[c] > 0),
+    });
     this.drawMarks(a);
+    this.hoverId = ""; // re-run the forecast for whatever the pointer is over now
+    this.onHover(this.input.activePointer);
   }
 
   /** Red brackets on hittable enemies, blue on allies a swap can reach. */
@@ -322,7 +357,7 @@ export class BattleScene extends Phaser.Scene {
     };
     g.lineStyle(2, 0xd5b878, 0.9).strokeEllipse(this.units.get(a.id)!.box.x, GROUND - 2, 46, 14);
     if (!this.choice) return;
-    if (this.choice.kind === "swap") {
+    if (this.choice.kind === "swap" || this.choice.kind === "guard") {
       const side = this.f[a.team as K.Side], i = side.indexOf(a.id);
       [side[i - 1], side[i + 1]].filter(Boolean).forEach(id => box(id, 0x5aa0ff));
     } else for (const id of K.legalTargets(this.b, this.f, a, this.choice)) box(id, 0xff4444);
@@ -339,11 +374,117 @@ export class BattleScene extends Phaser.Scene {
   private async act(a: any, act: K.RankAction, target?: string) {
     const gen = this.generation;
     let err: string | null = null;
-    await this.resolve(() => { err = K.perform(this.b, this.f, a, act, target); });
+    const fortune = this.useFortune && (a.fortune || 0) > 0;
+    await this.resolve(() => { err = K.perform(this.b, this.f, a, act, target, { fortune }); });
     if (gen !== this.generation) return;
+    if (!err) this.useFortune = false;
     this.error = err ?? "";
     if (err && C.current(this.b)?.id === a.id) this.refreshControls();
     else this.pump(gen);
+  }
+
+  // ---------------------------------------------------------------- turns, stress, resources
+
+  /** Start-of-turn bookkeeping: round banner, guard expiry, afflicted comrades lashing out. */
+  private async beginTurn(cur: any) {
+    this.turnKey = `${this.b.round}:${this.b.turn}:${cur.id}`;
+    if (this.b.round !== this.lastRound) {
+      this.lastRound = this.b.round;
+      this.hud.log(`── ${this.b.round}라운드 ── 행동 순서: ${this.b.order.map((id: string) => this.b.actors.find((x: any) => x.id === id)?.name).join(" → ")}`, "round");
+      await this.roundBanner(this.b.round);
+    }
+    K.startTurn(this.f, cur);
+    await this.showStress(St.afflictedTurn(this.b, this.stress, cur.id));
+    this.refreshBadges();
+  }
+
+  private async roundBanner(n: number) {
+    if (this.speed === "instant") return;
+    const t = this.fx(this.add.text(W / 2, 92, `${n}라운드`, { fontFamily: "serif", fontSize: "22px", color: "#e8d9a8", stroke: "#000", strokeThickness: 5 })
+      .setOrigin(0.5).setDepth(4000).setResolution(2).setAlpha(0));
+    await this.tween({ targets: t, alpha: 1, y: 100, duration: 220 });
+    await this.wait(420);
+    await this.tween({ targets: t, alpha: 0, duration: 220 });
+    t.destroy();
+  }
+
+  /** Floating stress numbers, resolve moments and log lines. */
+  private async showStress(notes: St.StressNote[]) {
+    const colours = { gain: "#c9b8ff", relief: "#9ad1ff", virtue: "#ffe08a", affliction: "#ff6b6b", heart: "#ff3b3b" };
+    for (const n of notes) {
+      this.hud.log(n.text, n.kind === "virtue" ? "round" : n.kind === "affliction" || n.kind === "heart" ? "dmg" : "dice");
+      const u = this.units.get(n.actor);
+      if (!u) continue;
+      const label = n.kind === "virtue" ? "각성!" : n.kind === "affliction" ? "고난!" : n.kind === "heart" ? "심장 마비!" : `${n.delta! > 0 ? "+" : ""}${n.delta} 스트레스`;
+      this.floatText({ x: u.box.x, y: u.box.y - 70 }, label, colours[n.kind], n.kind !== "gain" && n.kind !== "relief");
+      if (u.rig && (n.kind === "virtue" || n.kind === "affliction")) {
+        u.rig.pose = n.kind === "virtue" ? "heroic" : "afflicted"; u.rig.start = this.time.now;
+        await this.closeUp(n.actor, n.actor, true);
+        await this.wait(900);
+        await this.closeUp(n.actor, n.actor, false);
+        this.setPose(u, "idle");
+      }
+    }
+    if (notes.length) await this.wait(250);
+    this.hud.order(this.b, this.view, C.current(this.b)?.id, this.stress);
+  }
+
+  /** Condition, death's-door, resolve and guard badges over each unit; stress bars. */
+  private refreshBadges() {
+    for (const a of this.b.actors) {
+      const u = this.units.get(a.id);
+      if (!u) continue;
+      const tags: string[] = [];
+      if (St.atDeathsDoor(a)) tags.push("☠문턱");
+      const r = this.stress[a.id]?.resolve;
+      if (r) tags.push(r === "afflicted" ? "고난" : "각성");
+      if (this.f.guard[a.id]) tags.push("🛡보호");
+      for (const [c, n] of Object.entries(a.conditions || {}) as [string, number][]) if (n > 0) tags.push(`${D.CONDITION_NAMES[c] || c}${n > 1 ? n : ""}`);
+      u.badges.setText(a.dead || a.escaped ? "" : tags.join(" "));
+      if (u.stressFill) {
+        const v = this.stress[a.id]?.value ?? 0;
+        u.stressFill.scaleX = v / St.STRESS_MAX;
+        u.stressFill.setFillStyle(v >= St.RESOLVE_AT ? 0xff6b6b : 0xd8d8f0);
+      }
+    }
+  }
+
+  /** Hovering an enemy with an attack selected shows the engine's hit/damage forecast. */
+  private onHover(p: Phaser.Input.Pointer) {
+    const a = C.current(this.b);
+    if (this.busy || !a || !this.choice || !playerControls(this.setup, this.b, a)) return;
+    let hit: Unit | null = null;
+    for (const u of this.units.values()) if (Math.abs(p.worldX - u.box.x) < 26 * u.n && p.worldY > GROUND - 75 * u.n && p.worldY < GROUND + 12) hit = u;
+    const id = hit?.id ?? "";
+    if (id === this.hoverId) return;
+    this.hoverId = id;
+    if (!id || !K.legalTargets(this.b, this.f, a, this.choice).includes(id)) { this.hud.forecast(""); return; }
+    const r: any = K.forecastFor(this.b, this.f, a, this.choice, id);
+    const t = this.b.actors.find((x: any) => x.id === id);
+    if (!r) { this.hud.forecast(""); return; }
+    if (r.reason) { this.hud.forecast(`${t.name}: ${r.reason}`); return; }
+    const pct = (x: number) => `${Math.round((x ?? 0) * (x > 1 ? 1 : 100))}%`;
+    const range = r.rawMin !== null && r.rawMax !== null ? `${r.rawMin}~${r.rawMax}` : "-";
+    this.hud.forecast(`${t.name} · 명중 ${pct(r.successChance)} · 원 피해 ${range} · 평균 체력 피해 ${(r.expected ?? 0).toFixed(1)} · 쓰러뜨릴 확률 ${pct(r.downChance)} (엔진 예측 ${r.samples}회)`);
+  }
+
+  private fortuneCondition(c: string) {
+    const a = C.current(this.b);
+    try { C.useResource(this.b, a.id, "fortuneCondition", { condition: c }); this.error = ""; }
+    catch (e) { this.error = (e as Error).message; }
+    this.refreshBadges();
+    this.refreshControls();
+  }
+
+  /** WFRP Fate: survive at death's door by leaving the field (engine "fate"). */
+  private async spendFate() {
+    const a = C.current(this.b);
+    try { C.useResource(this.b, a.id, "fate"); } catch (e) { this.error = (e as Error).message; this.refreshControls(); return; }
+    this.hud.log(`${a.name} · 운명점을 태워 살아남아 전장을 떠난다`, "round");
+    const u = this.units.get(a.id);
+    if (u) await this.tween({ targets: u.box, alpha: 0, duration: 400 });
+    await this.resolve(() => K.skipTurn(this.b, a));
+    this.pump(this.generation);
   }
 
   private async endTurn() {

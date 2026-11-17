@@ -11,7 +11,7 @@ import { C, D, E } from "../rules/engine.js";
 export const RANKS = 4;
 export type Side = "allies" | "enemies";
 
-export type ActionKind = "attack" | "cast" | "channel" | "skill" | "defend" | "swap" | "shove" | "pull";
+export type ActionKind = "attack" | "cast" | "channel" | "skill" | "charge" | "retreat" | "guard" | "defend" | "swap" | "shove" | "pull";
 
 export interface RankAction {
   kind: ActionKind;
@@ -28,7 +28,11 @@ export interface RankAction {
 }
 
 /** The formation: actor ids per side, front first. Large and bigger monsters are 2 ranks wide. */
-export interface Formation { allies: string[]; enemies: string[]; width: Record<string, number> }
+export interface Formation {
+  allies: string[]; enemies: string[]; width: Record<string, number>;
+  /** ally id → guardian id: attacks on the ally go to the guardian until the guardian's next turn */
+  guard: Record<string, string>;
+}
 
 const ALL = [1, 2, 3, 4];
 const MELEE_TARGETS = [1, 2];
@@ -62,7 +66,7 @@ export function makeFormation(b: any): Formation {
     }
     return ids;
   };
-  return { allies: side("allies"), enemies: side("enemies"), width };
+  return { allies: side("allies"), enemies: side("enemies"), width, guard: {} };
 }
 
 export function sideOf(f: Formation, id: string): Side { return f.allies.includes(id) ? "allies" : "enemies"; }
@@ -84,8 +88,9 @@ const actor = (b: any, id: string) => b.actors.find((a: any) => a.id === id);
 /** Conscious actors move forward over the fallen; fallen ones go to the back, in order. */
 export function compact(b: any, f: Formation) {
   for (const s of ["allies", "enemies"] as Side[]) {
-    const up = f[s].filter(id => C.conscious(actor(b, id)));
-    const down = f[s].filter(id => !C.conscious(actor(b, id)));
+    const standing = (id: string) => { const a = actor(b, id); return C.conscious(a) && !a.escaped; };
+    const up = f[s].filter(standing);
+    const down = f[s].filter(id => !standing(id));
     f[s] = [...up, ...down];
   }
 }
@@ -118,6 +123,16 @@ export function actionsFor(b: any, f: Formation, a: any): RankAction[] {
     if (canChannel(a) && Number(sp.cn) > 0) out.push({ kind: "channel", label: `집중 · ${sp.name}`, spellId: sp.id, from: ALL, to: [] });
   }
   out.push(...activeSkills(a));
+  // Darkest Dungeon style loadout: only the equipped special skills / spells are offered.
+  if (Array.isArray(a.loadout)) for (let i = out.length - 1; i >= 0; i--) if (isLoadoutSkill(out[i]) && !a.loadout.includes(skillKey(out[i]))) out.splice(i, 1);
+  const melee = out.find(x => x.kind === "attack" && x.weaponId && !a.weapons.find((w: any) => w.id === x.weaponId)?.ranged);
+  if (melee) {
+    // WFRP Charge: run in from the back ranks and strike; the charger then takes rank 1.
+    out.push({ kind: "charge", label: "돌격", weaponId: melee.weaponId, from: [2, 3], to: MELEE_TARGETS });
+  }
+  // WFRP Disengage: step out of melee to the rank behind.
+  out.push({ kind: "retreat", label: "교전 이탈 (뒤로)", from: [1], to: [] });
+  out.push({ kind: "guard", label: "보호 (옆 아군)", from: ALL, to: [] });
   // Shove / pull wait for the rulebook text (kept in perform() but not offered).
   out.push({ kind: "swap", label: "자리 바꾸기", from: ALL, to: [] });
   out.push({ kind: "defend", label: "방어 태세", from: ALL, to: [] });
@@ -135,7 +150,8 @@ export function usable(b: any, f: Formation, a: any, act: RankAction): boolean {
   if (a.actionUsed || !overlaps(ranksOf(f, a.id), act.from)) return false;
   if ((act.kind === "cast" || act.kind === "channel") && !canCastNow(a, act.spellId)) return false;
   if (act.kind === "defend" || act.kind === "channel" || (act.kind === "skill" && !act.to.length)) return true;
-  if (act.kind === "swap") return f[a.team as Side].length > 1;
+  if (act.kind === "swap" || act.kind === "guard") return f[a.team as Side].length > 1;
+  if (act.kind === "retreat") return rankOf(f, a.id) < f[a.team as Side].length && !a.moveUsed;
   return legalTargets(b, f, a, act).length > 0;
 }
 
@@ -198,7 +214,7 @@ function project(b: any, a: any, t: any, kind: ActionKind, ranged: boolean, f: F
  * Executes a rank action for the current actor and ends their turn.
  * Returns an error message when the engine refuses (the turn is NOT ended then).
  */
-export function perform(b: any, f: Formation, a: any, act: RankAction, targetId?: string): string | null {
+export function perform(b: any, f: Formation, a: any, act: RankAction, targetId?: string, opts: { fortune?: boolean } = {}): string | null {
   // A refused engine call restores the battle from a backup, which replaces the actor
   // objects; always work on the live ones.
   a = actor(b, a.id);
@@ -212,6 +228,28 @@ export function perform(b: any, f: Formation, a: any, act: RankAction, targetId?
     if (j < 0 || Math.abs(i - j) !== 1) return "바로 옆 열의 아군과만 자리를 바꿀 수 있습니다.";
     [side[i], side[j]] = [side[j], side[i]];
     C.perform(b, a.id, "end", {});
+    return null;
+  }
+  if (act.kind === "guard") {
+    // Darkest Dungeon guard: protect an adjacent ally until this actor's next turn.
+    const i = side.indexOf(a.id), j = targetId ? side.indexOf(targetId) : -1;
+    if (j < 0 || Math.abs(i - j) !== 1) return "바로 옆 열의 아군만 보호할 수 있습니다.";
+    for (const k of Object.keys(f.guard)) if (f.guard[k] === a.id) delete f.guard[k];
+    f.guard[side[j]] = a.id;
+    b.log.push({ n: ++b.logCounter, round: b.round, kind: "visual", actor: a.id, name: a.name, team: a.team, action: "defend",
+      target: side[j], targetName: actor(b, side[j]).name, label: "보호", outcome: "다음 차례까지 대신 막음",
+      text: `${a.name} · 보호 → ${actor(b, side[j]).name}`, dice: [], presentationGroup: b.logCounter });
+    C.perform(b, a.id, "end", {});
+    return null;
+  }
+  if (act.kind === "retreat") {
+    const foe = actor(b, f[a.team === "allies" ? "enemies" : "allies"].find(id => C.active(actor(b, id)))!);
+    const restore = foe ? project(b, a, foe, act.kind, false, f) : () => {};
+    try { C.perform(b, a.id, "disengage", {}); } catch (e) { restore(); return (e as Error).message; }
+    restore();
+    const i = side.indexOf(a.id);
+    if (!a.conditions?.Prone && i + 1 < side.length) [side[i], side[i + 1]] = [side[i + 1], side[i]];
+    if (b.status === "running" && C.current(b)?.id === a.id) C.perform(b, a.id, "end", {});
     return null;
   }
   if (act.kind === "channel") {
@@ -231,8 +269,14 @@ export function perform(b: any, f: Formation, a: any, act: RankAction, targetId?
     return null;
   }
 
-  const t = actor(b, targetId!);
+  let t = actor(b, targetId!);
   if (!t || !legalTargets(b, f, a, act).includes(t.id)) return "그 대상은 지금 닿지 않습니다.";
+  // A guarded ally: the guardian takes the blow instead.
+  const g = f.guard[t.id] && actor(b, f.guard[t.id]);
+  if (g && C.conscious(g) && g.team === t.team) {
+    b.log.push({ n: ++b.logCounter, round: b.round, kind: "event", text: `${g.name} · 보호: ${t.name} 대신 막아섬` });
+    t = g;
+  }
 
   if (act.kind === "shove" || act.kind === "pull") {
     // Opposed Strength test; on success the target moves one rank back (shove) or forward (pull).
@@ -249,16 +293,21 @@ export function perform(b: any, f: Formation, a: any, act: RankAction, targetId?
   }
 
   const w = act.weaponId ? a.weapons.find((x: any) => x.id === act.weaponId) : null;
-  const restore = project(b, a, t, act.kind, act.kind === "cast" ? !/touch/i.test(C.spellFor(a, act.spellId)?.range || "") : act.kind === "skill" ? ["throw-rune", "rune-fire"].includes(act.action!) : !!w?.ranged, f, act.techniqueId === "phoenix");
+  const restore = project(b, a, t, act.kind, act.kind === "cast" ? !/touch/i.test(C.spellFor(a, act.spellId)?.range || "") : act.kind === "skill" ? ["throw-rune", "rune-fire"].includes(act.action!) : !!w?.ranged, f, act.techniqueId === "phoenix" || act.kind === "charge");
   try {
-    if (act.kind === "attack") C.perform(b, a.id, "attack", { target: t.id, weaponId: act.weaponId });
-    else if (act.kind === "skill") C.perform(b, a.id, act.action, { target: t.id, weaponId: act.weaponId, techniqueId: act.techniqueId });
-    else C.perform(b, a.id, "cast", { target: t.id, spellId: act.spellId });
+    if (act.kind === "attack") C.perform(b, a.id, "attack", { target: t.id, weaponId: act.weaponId, fortuneAdvantage: opts.fortune });
+    else if (act.kind === "charge") C.perform(b, a.id, "charge", { target: t.id, weaponId: act.weaponId, fortuneAdvantage: opts.fortune });
+    else if (act.kind === "skill") C.perform(b, a.id, act.action, { target: t.id, weaponId: act.weaponId, techniqueId: act.techniqueId, fortuneAdvantage: opts.fortune });
+    else C.perform(b, a.id, "cast", { target: t.id, spellId: act.spellId, fortuneAdvantage: opts.fortune });
   } catch (e) {
     restore();
     return (e as Error).message;
   }
   restore();
+  if (act.kind === "charge") { // the charger now fights from the front
+    const live = actor(b, a.id), i = side.indexOf(a.id);
+    if (live && C.conscious(live) && i > 0) { side.splice(i, 1); side.unshift(a.id); }
+  }
   compact(b, f);
   if (b.status === "running" && C.current(b)?.id === a.id) C.perform(b, a.id, "end", {});
   return null;
@@ -268,10 +317,10 @@ export function perform(b: any, f: Formation, a: any, act: RankAction, targetId?
 
 /** Picks an action for a non-player actor: best reachable attack, else reposition, else defend. */
 export function aiChoose(b: any, f: Formation, a: any, opts: { noSkills?: boolean } = {}): { act: RankAction; target?: string } {
-  const acts = actionsFor(b, f, a).filter(x => !(opts.noSkills && x.kind === "skill"));
+  const acts = actionsFor(b, f, a).filter(x => !(opts.noSkills && (x.kind === "skill" || x.kind === "charge")));
   const prefersRanged = a.tactic === "ranged";
   let best: { act: RankAction; target: string; score: number } | null = null;
-  for (const act of acts.filter(x => (x.kind === "attack" || x.kind === "cast" || (x.kind === "skill" && x.to.length > 0)) && usable(b, f, a, x))) {
+  for (const act of acts.filter(x => (x.kind === "attack" || x.kind === "cast" || x.kind === "charge" || (x.kind === "skill" && x.to.length > 0)) && usable(b, f, a, x))) {
     for (const id of legalTargets(b, f, a, act)) {
       const t = actor(b, id);
       const w = act.weaponId ? a.weapons.find((x: any) => x.id === act.weaponId) : null;
@@ -340,4 +389,40 @@ export function settlePending(b: any): string {
   if (p.kind === "archive-half") { C.resolveArchiveGM(b, "down"); return `보호의 반지 → ${p.amount} 운드를 반내림`; }
   C.adjudicate(b, p.actor, { kind: "note", value: 0, note: `GM 판정 보류 → 효과 없이 진행: ${p.note || p.kind}` });
   return p.note || p.kind;
+}
+
+/** A guard lasts until the guardian's next turn. */
+export function startTurn(f: Formation, a: any) {
+  for (const k of Object.keys(f.guard)) if (f.guard[k] === a.id) delete f.guard[k];
+}
+
+/** Stable key for a loadout entry (special skills, spells and channelling). */
+export const skillKey = (x: RankAction) => `${x.kind}:${x.techniqueId || x.spellId || x.action || ""}`;
+export const isLoadoutSkill = (x: RankAction) => x.kind === "skill" || x.kind === "cast" || x.kind === "channel";
+export const LOADOUT_SIZE = 4;
+
+/** Every special skill an actor could equip (ignores the current loadout). */
+export function loadoutOptions(a: any): RankAction[] {
+  const saved = a.loadout;
+  a.loadout = undefined;
+  try { return actionsFor({ actors: [] }, { allies: [], enemies: [], width: {}, guard: {} }, a).filter(isLoadoutSkill); }
+  finally { a.loadout = saved; }
+}
+
+/**
+ * Hit chance, damage range and chance to drop the target, from the engine's own Monte
+ * Carlo forecast, run with the pair projected exactly as perform() would place them.
+ */
+export function forecastFor(b: any, f: Formation, a: any, act: RankAction, targetId: string) {
+  const t = actor(b, targetId);
+  if (!t || !["attack", "cast", "skill", "charge"].includes(act.kind)) return null;
+  const w = act.weaponId ? a.weapons.find((x: any) => x.id === act.weaponId) : null;
+  const ranged = act.kind === "cast" ? !/touch/i.test(C.spellFor(a, act.spellId)?.range || "") : act.kind === "skill" ? ["throw-rune", "rune-fire"].includes(act.action!) : !!w?.ranged;
+  const restore = project(b, a, t, act.kind, ranged, f, act.techniqueId === "phoenix" || act.kind === "charge");
+  try {
+    const action = act.kind === "skill" ? act.action : act.kind;
+    const r = C.forecast(b, a.id, action, { target: t.id, weaponId: act.weaponId, spellId: act.spellId, techniqueId: act.techniqueId }, { samples: 80 });
+    return r.available === false && r.reason ? { reason: r.reason } : r;
+  } catch (e) { return { reason: (e as Error).message }; }
+  finally { restore(); }
 }

@@ -1,5 +1,6 @@
 import { C, D } from "../rules/engine.js";
 import { rules, ownedItems } from "../rules/builder.js";
+import { LOADOUT_SIZE, loadoutOptions, skillKey } from "./ranks";
 import demoParty from "../data/demo-party.json";
 
 /** How the player's side is driven. The engine itself only knows "manual" (one controlled actor) and "auto". */
@@ -11,6 +12,8 @@ export interface BattleSetup {
   enemies: string[];  // D.ENEMY_PROFILES ids
   background: string;
   seed: number;
+  /** party index → equipped special-skill keys (max 4); missing = first four */
+  loadout?: Record<number, string[]>;
 }
 
 export const DEFAULT_SETUP: BattleSetup = {
@@ -27,13 +30,21 @@ export interface Roster {
   sprites: Record<string, string>;
 }
 
-export function createDemoBattle(setup: BattleSetup): Roster {
-  const allies = (demoParty as any[]).map(p => ({
+/** The demo party as battle participants (also used to list loadout choices). */
+export function partyActors(): any[] {
+  return (demoParty as any[]).map(p => ({
     ...C.fromBuilder(rules, structuredClone(p.state), ownedItems(p.state)),
     careerId: p.state.career, // picks the rig (cavalry careers get mounted rigs)
     careerClass: rules.careers.find((c: any) => c.id === p.state.career)?.class,
     tactic: p.sprite === "elf-mage" ? "ranged" : "melee",
   }));
+}
+
+export function createDemoBattle(setup: BattleSetup): Roster {
+  const allies = partyActors().map((a, i) => {
+    const keys = loadoutOptions(a).map(skillKey);
+    return { ...a, loadout: setup.loadout?.[i] ?? keys.slice(0, LOADOUT_SIZE) };
+  });
   const enemies = setup.enemies.map(id => {
     const p = D.ENEMY_PROFILES.find((x: any) => x.id === id);
     if (!p) throw new Error(`unknown enemy profile: ${id}`);
