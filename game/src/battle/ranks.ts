@@ -11,7 +11,7 @@ import { C, D, E } from "../rules/engine.js";
 export const RANKS = 4;
 export type Side = "allies" | "enemies";
 
-export type ActionKind = "attack" | "cast" | "channel" | "skill" | "charge" | "retreat" | "guard" | "defend" | "swap" | "shove" | "pull";
+export type ActionKind = "attack" | "cast" | "channel" | "skill" | "charge" | "retreat" | "guard" | "defend" | "swap";
 
 export interface RankAction {
   kind: ActionKind;
@@ -115,6 +115,10 @@ export function actionsFor(b: any, f: Formation, a: any): RankAction[] {
     out.push({ kind: "attack", label: `${w.name} · ${r.label}`, weaponId: w.id, from: r.from, to: r.to });
   }
   for (const sp of a.spells || []) {
+    if (isPushSpell(sp)) { // AoE around the caster: reaches the enemy front from ranks 1-2
+      out.push({ kind: "cast", label: `주문 · ${sp.name} (밀쳐내기)`, spellId: sp.id, from: [1, 2], to: [] });
+      continue;
+    }
     if (!/\d|yard|Willpower|Touch/i.test(sp.range || "") || /^You$/i.test(sp.range || "")) continue; // skip self/utility
     const touch = /touch/i.test(sp.range);
     // Casting is not limited by rank: being hit in the front line only matters if it breaks
@@ -133,7 +137,8 @@ export function actionsFor(b: any, f: Formation, a: any): RankAction[] {
   // WFRP Disengage: step out of melee to the rank behind.
   out.push({ kind: "retreat", label: "교전 이탈 (뒤로)", from: [1], to: [] });
   out.push({ kind: "guard", label: "보호 (옆 아군)", from: ALL, to: [] });
-  // Shove / pull wait for the rulebook text (kept in perform() but not offered).
+  // No generic shove: the v54 workshop has none. Pushing comes from the Push spell and the
+  // Shieldsman talent (see perform()).
   out.push({ kind: "swap", label: "자리 바꾸기", from: ALL, to: [] });
   out.push({ kind: "defend", label: "방어 태세", from: ALL, to: [] });
   return out;
@@ -149,6 +154,7 @@ export function legalTargets(b: any, f: Formation, a: any, act: RankAction): str
 export function usable(b: any, f: Formation, a: any, act: RankAction): boolean {
   if (a.actionUsed || !overlaps(ranksOf(f, a.id), act.from)) return false;
   if ((act.kind === "cast" || act.kind === "channel") && !canCastNow(a, act.spellId)) return false;
+  if (act.kind === "cast" && !act.to.length) return true; // Push: no single target
   if (act.kind === "defend" || act.kind === "channel" || (act.kind === "skill" && !act.to.length)) return true;
   if (act.kind === "swap" || act.kind === "guard") return f[a.team as Side].length > 1;
   if (act.kind === "retreat") return rankOf(f, a.id) < f[a.team as Side].length && !a.moveUsed;
@@ -214,7 +220,7 @@ function project(b: any, a: any, t: any, kind: ActionKind, ranged: boolean, f: F
  * Executes a rank action for the current actor and ends their turn.
  * Returns an error message when the engine refuses (the turn is NOT ended then).
  */
-export function perform(b: any, f: Formation, a: any, act: RankAction, targetId?: string, opts: { fortune?: boolean } = {}): string | null {
+export function perform(b: any, f: Formation, a: any, act: RankAction, targetId?: string, opts: { fortune?: boolean; shieldPush?: boolean } = {}): string | null {
   // A refused engine call restores the battle from a backup, which replaces the actor
   // objects; always work on the live ones.
   a = actor(b, a.id);
@@ -252,6 +258,7 @@ export function perform(b: any, f: Formation, a: any, act: RankAction, targetId?
     if (b.status === "running" && C.current(b)?.id === a.id) C.perform(b, a.id, "end", {});
     return null;
   }
+  if (act.kind === "cast" && !act.to.length) return castPush(b, f, a, act);
   if (act.kind === "channel") {
     const sp = C.spellFor(a, act.spellId);
     C.perform(b, a.id, "channel", { spellId: act.spellId, wind: windFor(a, sp) });
@@ -278,32 +285,20 @@ export function perform(b: any, f: Formation, a: any, act: RankAction, targetId?
     t = g;
   }
 
-  if (act.kind === "shove" || act.kind === "pull") {
-    // Opposed Strength test; on success the target moves one rank back (shove) or forward (pull).
-    const foes = f[t.team as Side], k = foes.indexOf(t.id), dest = act.kind === "shove" ? k + 1 : k - 1;
-    const atk = C.rollTest(C.stat(a, "S"), C.random(b)), def = C.rollTest(C.stat(t, "S"), C.random(b));
-    const win = C.compareTests(atk, def) > 0;
-    b.log.push({ n: ++b.logCounter, round: b.round, kind: "visual", actor: a.id, name: a.name, team: a.team, action: act.kind,
-      target: t.id, targetName: t.name, label: act.label, outcome: win ? "성공" : "실패",
-      text: `${a.name} · ${act.label} → ${t.name} · ${win ? "성공" : "실패"}`,
-      dice: [{ name: a.name, key: "근력", ...atk }, { name: t.name, key: "근력", ...def }], presentationGroup: b.logCounter });
-    if (win && dest >= 0 && dest < foes.length) [foes[k], foes[dest]] = [foes[dest], foes[k]];
-    C.perform(b, a.id, "end", {});
-    return null;
-  }
-
   const w = act.weaponId ? a.weapons.find((x: any) => x.id === act.weaponId) : null;
+  let result: any = null;
   const restore = project(b, a, t, act.kind, act.kind === "cast" ? !/touch/i.test(C.spellFor(a, act.spellId)?.range || "") : act.kind === "skill" ? ["throw-rune", "rune-fire"].includes(act.action!) : !!w?.ranged, f, act.techniqueId === "phoenix" || act.kind === "charge");
   try {
-    if (act.kind === "attack") C.perform(b, a.id, "attack", { target: t.id, weaponId: act.weaponId, fortuneAdvantage: opts.fortune });
-    else if (act.kind === "charge") C.perform(b, a.id, "charge", { target: t.id, weaponId: act.weaponId, fortuneAdvantage: opts.fortune });
-    else if (act.kind === "skill") C.perform(b, a.id, act.action, { target: t.id, weaponId: act.weaponId, techniqueId: act.techniqueId, fortuneAdvantage: opts.fortune });
+    if (act.kind === "attack") result = C.perform(b, a.id, "attack", { target: t.id, weaponId: act.weaponId, fortuneAdvantage: opts.fortune });
+    else if (act.kind === "charge") result = C.perform(b, a.id, "charge", { target: t.id, weaponId: act.weaponId, fortuneAdvantage: opts.fortune });
+    else if (act.kind === "skill") result = C.perform(b, a.id, act.action, { target: t.id, weaponId: act.weaponId, techniqueId: act.techniqueId, fortuneAdvantage: opts.fortune });
     else C.perform(b, a.id, "cast", { target: t.id, spellId: act.spellId, fortuneAdvantage: opts.fortune });
   } catch (e) {
     restore();
     return (e as Error).message;
   }
   restore();
+  if (["attack", "charge", "skill"].includes(act.kind) && !w?.ranged && result?.won && opts.shieldPush !== false) shieldsmanPush(b, f, actor(b, a.id), actor(b, t.id));
   if (act.kind === "charge") { // the charger now fights from the front
     const live = actor(b, a.id), i = side.indexOf(a.id);
     if (live && C.conscious(live) && i > 0) { side.splice(i, 1); side.unshift(a.id); }
@@ -425,4 +420,63 @@ export function forecastFor(b: any, f: Formation, a: any, act: RankAction, targe
     return r.available === false && r.reason ? { reason: r.reason } : r;
   } catch (e) { return { reason: (e as Error).message }; }
   finally { restore(); }
+}
+
+// ------------------------------------------------------------------ pushing
+
+const isPushSpell = (sp: any) => sp?.baseId === "f5-push" || /^f5-push(-|$)/.test(sp?.id || "");
+
+/** Moves a unit `n` ranks toward the back of its side (stops at the last rank). */
+function pushBack(f: Formation, id: string, n: number) {
+  const side = f[sideOf(f, id)], i = side.indexOf(id), j = Math.min(side.length - 1, i + n);
+  if (i < 0 || j === i) return 0;
+  side.splice(i, 1);
+  side.splice(j, 0, id);
+  return j - i;
+}
+
+const note = (b: any, text: string) => b.log.push({ n: ++b.logCounter, round: b.round, kind: "event", text });
+
+/**
+ * Push (v54 engine, unchanged): every creature within Willpower Bonus yards of the caster
+ * takes 1d10 ignoring armour, falls Prone and is thrown back. The enemy line is laid out
+ * at one engine cell (2 yards) per rank from the caster; the cells each foe is thrown
+ * become ranks.
+ */
+function castPush(b: any, f: Formation, a: any, act: RankAction): string | null {
+  const saved = b.actors.map((x: any) => ({ id: x.id, x: x.x, y: x.y }));
+  const foes = f[a.team === "allies" ? "enemies" : "allies"], r = rankOf(f, a.id);
+  let ally = 0; // allies well out of the blast
+  for (const x of b.actors) if (x.team === a.team) { x.x = b.config.width - 1; x.y = Math.min(b.config.height - 1, ally++ * 3); }
+  a.x = 2; a.y = 6;
+  const start: Record<string, number> = {};
+  for (const id of foes) { const t = actor(b, id); t.x = a.x + r + rankOf(f, id) - 1; t.y = 6; start[id] = t.x; }
+  let err: string | null = null;
+  try { C.perform(b, a.id, "cast", { target: a.id, spellId: act.spellId }); } catch (e) { err = (e as Error).message; }
+  const moved = foes.map(id => ({ id, cells: Math.abs(actor(b, id).x - start[id]) }));
+  for (const s of saved) { const x = actor(b, s.id); x.x = s.x; x.y = s.y; }
+  if (err) return err;
+  for (const m of moved.sort((p, q) => rankOf(f, q.id) - rankOf(f, p.id))) {
+    if (!m.cells) continue;
+    const n = pushBack(f, m.id, m.cells);
+    if (n) note(b, `${actor(b, m.id).name} · 밀쳐내기로 ${n}열 뒤로`);
+  }
+  compact(b, f);
+  if (b.status === "running" && C.current(b)?.id === a.id) C.perform(b, a.id, "end", {});
+  return null;
+}
+
+/**
+ * Shieldsman (talent text in the v54 data, not wired up there): once per round, after
+ * winning a melee exchange with a shield, spend Momentum to push the foe 2 yards back and
+ * end the engagement — one rank here.
+ */
+function shieldsmanPush(b: any, f: Formation, a: any, t: any) {
+  if (!a || !t || !C.active(t) || !C.talent(a, "Shieldsman") || !a.advantage) return;
+  if (!(a.shields?.length || a.weapons?.some((w: any) => w.qualities?.Shield))) return;
+  if (a.shieldPushRound === b.round || C.trait(t, "Swarm") || f.width[t.id] > 1) return;
+  a.advantage = 0;
+  a.shieldPushRound = b.round;
+  const n = pushBack(f, t.id, 1);
+  note(b, n ? `${a.name} · 방패 전사: 모멘텀을 써서 ${t.name}을(를) 한 열 밀어냄` : `${a.name} · 방패 전사: 모멘텀을 썼지만 ${t.name} 뒤에 자리가 없음`);
 }
