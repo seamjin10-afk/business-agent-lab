@@ -1,0 +1,83 @@
+{
+  "rigs": {
+    "count": 14,
+    "samples": 6888,
+    "clipped": [],
+    "nonfinite": [],
+    "maxContactY": 0.0000034040103535915023,
+    "maxSoleSlope": 6.657902745788036e-8,
+    "errors": []
+  },
+  "ruleRegression": {
+    "battles": 5,
+    "identical": true,
+    "outcomes": [
+      {
+        "status": "finished",
+        "round": 7,
+        "winner": "enemies"
+      },
+      {
+        "status": "finished",
+        "round": 15,
+        "winner": "allies"
+      },
+      {
+        "status": "finished",
+        "round": 6,
+        "winner": "enemies"
+      },
+      {
+        "status": "finished",
+        "round": 14,
+        "winner": "enemies"
+      },
+      {
+        "status": "finished",
+        "round": 6,
+        "winner": "enemies"
+      }
+    ]
+  },
+  "ui": {
+    "walk": true,
+    "attack": true,
+    "hurt": true,
+    "down": true,
+    "victory": true
+  },
+  "mounts": [
+    {
+      "expected": "human-cavalry",
+      "mounted": true,
+      "dismounted": true
+    },
+    {
+      "expected": "high-elf-cavalry",
+      "mounted": true,
+      "dismounted": true
+    },
+    {
+      "expected": "wood-elf-cavalry",
+      "mounted": true,
+      "dismounted": true
+    },
+    {
+      "expected": "dragon-prince-horse",
+      "mounted": true,
+      "dismounted": true
+    },
+    {
+      "expected": "dragon-prince-dragon",
+      "mounted": true,
+      "dismounted": true
+    }
+  ],
+  "mobile": {
+    "viewport": 390,
+    "pageWidth": 390,
+    "theater": 358
+  },
+  "singleFile": true,
+  "errors": []
+}
